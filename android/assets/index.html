@@ -24,7 +24,7 @@
   </section>
 
     <section id="touch" class="panel card" hidden>
-      <div id="touchpad" class="touchpad" aria-label="Panel táctil: mueve un dedo para mover el cursor, toca para clic izquierdo y usa dos dedos para desplazar o pellizcar para zoom"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7z"/></svg><strong>Desliza para mover</strong><span>Un toque: clic · Dos dedos: scroll o zoom</span></div>
+      <div id="touchpad" class="touchpad" aria-label="Panel táctil: mueve un dedo para mover el cursor, toca para clic izquierdo y usa dos dedos para desplazar o pellizcar para zoom; desliza tres dedos hacia arriba para ver ventanas y escritorios"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7z"/></svg><strong>Desliza para mover</strong><span>Un toque: clic · 2 dedos: scroll / zoom · 3 ↑: ventanas</span></div>
       <div class="mouse-buttons"><button data-click="left">Clic izquierdo</button><button id="control-keyboard" aria-label="Abrir teclado Android" aria-expanded="false" title="Abrir teclado Android"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M5 9h2m3 0h2m3 0h4M5 12h2m3 0h2m3 0h4M7 16h10"/></svg></button><button data-click="right">Clic derecho</button></div>
       <div id="media" class="media-strip" role="group" aria-label="Reproducción y volumen">
       <div class="playback">
@@ -64,7 +64,7 @@
       <div class="sensitivity-presets"><button data-sensitivity="0.35">Preciso</button><button data-sensitivity="0.65">Suave</button><button data-sensitivity="1.25">Rápido</button></div>
       <p class="hint">La sensibilidad se guarda. El desplazamiento se hace con dos dedos.</p>
       <label class="ir-visibility" for="show-ir-tab"><span>Mostrar pestaña IR</span><input type="checkbox" id="show-ir-tab" role="switch"></label>
-      <div class="settings-lock"><h2>Bloqueo del PC</h2><p class="hint">Requiere el ajuste MandoLock en Windows.</p><button id="lock-setup" class="full">Configurar bloqueo</button></div>
+      <div class="settings-tools"><button id="lock-setup">Bloqueo del PC</button><button id="zoom-setup">Configurar zoom visual</button></div>
     <footer><span id="connection-help">Servidor oficial · Wi-Fi</span><button id="disconnect" class="text-button">Desconectar</button></footer>
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </section>

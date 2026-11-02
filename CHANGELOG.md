@@ -1,11 +1,15 @@
 # Historial
 
-## 0.4.2-rc.1 — candidata
+## 0.4.2-rc.2 — candidata
 
-- Pellizcar con dos dedos reduce el zoom; separarlos amplía en la aplicación con foco mediante Ctrl+menos/más.
-- Distingue pellizco de scroll y mantiene cada gesto hasta levantar los dedos. Filtra pequeños movimientos y cancelaciones sin generar clics.
-- Combinaciones de teclas completas por datagrama, sin mantener Ctrl entre paquetes.
-- Prueba física en Windows pendiente; la release estable sigue siendo 0.4.1.
+- Pellizco para zoom visual de Firefox alrededor del cursor con el complemento local opcional MandoTouchZoom. Se configura desde Ajustes, después de instalar y probar el complemento en Windows.
+- Tres dedos hacia arriba abren la Vista de tareas (ventanas y escritorios) mediante Win+Tab, una vez por gesto.
+- Distingue gestos de scroll y filtra movimientos pequeños, cancelaciones y solicitudes caducadas.
+- La prueba física de los nuevos gestos sigue pendiente. La release estable continúa en 0.4.1.
+
+## 0.4.2-rc.1 — sustituida
+
+El usuario comprobó que el pellizco enviaba Ctrl+más/menos y cambiaba la distribución de la página. No correspondía al zoom visual solicitado; se ha retirado ese envío.
 
 ## 0.4.1 — estable
 

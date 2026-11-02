@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 let paired = false;
 let activeTab = 'touch';
 let irAvailable = false;
+let zoomHelperReady = false;
 let chain = Promise.resolve();
 let queued = 0;
 const mods = new Set();
@@ -132,10 +133,16 @@ $('lock-pc').addEventListener('click', async () => {
     status(result.needsSetup ? 'El bloqueo necesita instalar MandoLock en Windows.' : 'Solicitud de bloqueo enviada al PC.');
   } catch (error) {status(error.message, true);}
 });
+window.mandoZoomChanged = ready => {
+  zoomHelperReady = Boolean(ready);
+  $('zoom-setup').textContent = ready ? 'Zoom visual: listo' : 'Configurar zoom visual';
+};
+$('zoom-setup').addEventListener('click', () => api('/api/zoom-setup', {}).catch(error => status(error.message, true)));
 $('lock-setup').addEventListener('click', () => api('/api/lock-setup', {}).catch(error => status(error.message, true)));
 api('/api/settings').then(settings => {
   setSensitivity(settings.sensitivity); window.mandoLockChanged(settings.lockHelperInstalled || false);
   setIrTabVisible(settings.irTabVisible !== false);
+  window.mandoZoomChanged(settings.zoomHelperInstalled || false);
 }).catch(error => status(error.message, true));
 setInterval(() => {
   if (paired && !document.hidden) api('/api/status').then(result => {
@@ -159,7 +166,10 @@ function action(data) {
   queued++;
   const next = chain.then(() => {
     if (!paired) throw new Error('Vuelve a vincular el PC');
-    return api('/api/action', data);
+    return api('/api/action', data).then(result => {
+      if (result.expired) status('El gesto ha caducado. Vuelve a intentarlo.', true);
+      return result;
+    });
   });
   chain = next.catch(error => {status(error.message, true); setPaired(false);}).finally(() => queued--);
   return next;
@@ -294,6 +304,11 @@ document.querySelectorAll('[data-scroll]').forEach(b => b.addEventListener('clic
 const pointers = new Map();
 let multi = false, distance = 0, startTime = 0;
 let gesture = null, initialSpan = 0, initialY = 0, spanAnchor = 0, scrollAnchor = 0;
+let threeStart = null, zoomSetupRequested = false, zoomLastSent = 0;
+function centroid() {
+  const points = [...pointers.values()];
+  return {x:points.reduce((sum,p) => sum+p.x,0)/points.length, y:points.reduce((sum,p) => sum+p.y,0)/points.length};
+}
 function twoFingerGeometry() {
   const [a, b] = [...pointers.values()];
   return {span: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), y: (a.y + b.y) / 2};
@@ -302,7 +317,7 @@ const pad = $('touchpad');
 pad.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   event.preventDefault(); pad.setPointerCapture(event.pointerId);
-  if (!pointers.size) {multi = false; distance = 0; gesture = null; startTime = Date.now();}
+  if (!pointers.size) {multi = false; distance = 0; gesture = null; threeStart = null; zoomSetupRequested = false; zoomLastSent = 0; startTime = Date.now();}
   pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
   if (pointers.size > 1) {
     multi = true; dx = dy = 0;
@@ -310,6 +325,8 @@ pad.addEventListener('pointerdown', event => {
       const geometry = twoFingerGeometry();
       initialSpan = spanAnchor = geometry.span;
       initialY = scrollAnchor = geometry.y;
+    } else if (pointers.size === 3 && !gesture) {
+      gesture = 'three'; threeStart = centroid();
     } else gesture = 'blocked';
   }
 });
@@ -320,6 +337,15 @@ pad.addEventListener('pointermove', event => {
   distance += Math.abs(x) + Math.abs(y);
   pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
   if (pointers.size > 1) {
+    if (pointers.size === 3 && gesture === 'three') {
+      const current = centroid();
+      const up = threeStart.y-current.y;
+      if (up >= 60 && Math.abs(current.x-threeStart.x) < up*.6) {
+        gesture = 'task-view';
+        action({type:'task_view'}).catch(() => {});
+      }
+      return;
+    }
     if (pointers.size !== 2 || gesture === 'blocked') return;
     const geometry = twoFingerGeometry();
     if (!gesture) {
@@ -333,8 +359,17 @@ pad.addEventListener('pointermove', event => {
     if (gesture === 'pinch') {
       const steps = Math.max(-3, Math.min(3, Math.trunc(Math.log(geometry.span / spanAnchor) / Math.log(1.18))));
       if (steps) {
-        spanAnchor *= Math.pow(1.18, steps);
-        action({type: 'zoom', steps}).catch(() => {});
+        if (!zoomHelperReady) {
+          spanAnchor = geometry.span;
+          if (!zoomSetupRequested) {
+            zoomSetupRequested = true;
+            api('/api/zoom-setup', {}).catch(error => status(error.message, true));
+          }
+        } else if (Date.now()-zoomLastSent >= 300) {
+          spanAnchor = geometry.span;
+          zoomLastSent = Date.now();
+          action({type: 'zoom', steps:Math.sign(steps)}).catch(() => {});
+        }
       }
     } else {
       const steps = Math.max(-10, Math.min(10, Math.trunc((scrollAnchor - geometry.y) / 20)));

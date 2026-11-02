@@ -7,6 +7,7 @@
 !/SECURITY.md
 !/android/
 !/windows-lock/
+!/windows-zoom/
 !/evidence/
 
 # Local signing material and generated artifacts.
@@ -17,6 +18,8 @@ android/build/
 android/*.apk
 android/*.idsig
 windows-lock/*.zip
+windows-zoom/*.zip
+windows-zoom/*.exe
 
 # Historical investigation dumps stay local.
 evidence/*
@@ -28,6 +31,7 @@ evidence/*
 # Historical validation notes and device-only probes.
 android/VALIDATION*.md
 !android/VALIDATION-0.4.1.md
+!android/VALIDATION-0.4.2-rc.2.md
 android/tests/KeyboardProbe.java
 
 node_modules/

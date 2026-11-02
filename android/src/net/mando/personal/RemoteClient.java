@@ -154,9 +154,11 @@ final class RemoteClient {
         } else if("scroll".equals(type)) {
             int steps=number(data,"steps",-10,10);
             for(int i=0;i<Math.abs(steps);i++) sendCommand(Protocol.frame("mos",steps>0?"w 0":"w 1"));
+        } else if("task_view".equals(type)) {
+            sendCommand(Protocol.taskView());
         } else if("zoom".equals(type)) {
             int steps=number(data,"steps",-3,3);
-            for(int i=0;i<Math.abs(steps);i++) sendCommand(Protocol.zoom(steps>0));
+            if(steps!=0) sendCommand(Protocol.zoom(steps>0));
         } else if("text".equals(type)) {
             String text=data.getString("text");
             if(text.isEmpty() || text.length()>500) throw new IOException("Escribe entre 1 y 500 caracteres");

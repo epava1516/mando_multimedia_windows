@@ -22,7 +22,7 @@ def run(*args, env=None):
 run(TOOLS/'aapt2', 'compile', '--dir', ROOT/'res', '-o', BUILD/'compiled.zip')
 run(TOOLS/'aapt2', 'link', '-o', BUILD/'resources.apk', '-I', PLATFORM,
     '--manifest', ROOT/'AndroidManifest.xml', '--min-sdk-version', '28', '--target-sdk-version', '35',
-    '--version-code', '11', '--version-name', '0.4.2-rc.1', '--java', BUILD/'generated',
+    '--version-code', '12', '--version-name', '0.4.2-rc.2', '--java', BUILD/'generated',
     '-A', ROOT/'assets', BUILD/'compiled.zip')
 sources = sorted((ROOT/'src').rglob('*.java')) + sorted((BUILD/'generated').rglob('*.java'))
 run('javac', '-encoding', 'UTF-8', '--release', '8', '-classpath', PLATFORM,

@@ -2,7 +2,7 @@
 
 **Versión estable 0.4.1.** App Android para manejar un PC Windows y un televisor LG desde el móvil. Validada por el usuario con Windows 11, Firefox/HBO Max y el perfil infrarrojo LGTV1.
 
-La rama de zoom prepara **0.4.2-rc.1**: abrir/separar dos dedos amplía y pellizcar reduce en aplicaciones que admiten Ctrl+más/menos. El gesto se distingue del scroll con dos dedos. Pendiente de confirmación física en el PC; `v0.4.1` sigue siendo la release estable.
+La rama de gestos prepara **0.4.2-rc.2**: zoom visual de Firefox mediante el complemento opcional [MandoTouchZoom](windows-zoom/README.md), más tres dedos hacia arriba para abrir la Vista de tareas. El pellizco se distingue del scroll. Pendiente de confirmación física; `v0.4.1` sigue siendo la release estable.
 
 ## Funciones
 

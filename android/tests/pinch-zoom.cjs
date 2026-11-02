@@ -26,7 +26,7 @@ const server = http.createServer((request, response) => {
         const {path, data}=JSON.parse(raw);
         if (path==='/api/action') window.actions.push(data);
         const result = path==='/api/status' ? {paired:true} : path==='/api/settings' ?
-          {sensitivity:.65,irTabVisible:true} : path==='/api/ir/status' ? {available:true} : {ok:true};
+          {sensitivity:.65,irTabVisible:true,zoomHelperInstalled:true} : path==='/api/ir/status' ? {available:true} : {ok:true};
         setTimeout(()=>window.nativeReply(id,result),0);
       }};
     });
@@ -80,8 +80,24 @@ const server = http.createServer((request, response) => {
     await send('touchStart',[point(1,cx,cy)]);
     await finish();
     assert.equal((await actions()).filter(action=>action.type==='click').length,1,'tap must click once');
+    await reset();
+    await send('touchStart',[point(1,cx-60,cy),point(2,cx,cy),point(3,cx+60,cy)]);
+    await send('touchMove',[point(1,cx-60,cy-70),point(2,cx,cy-70),point(3,cx+60,cy-70)]);
+    await send('touchMove',[point(1,cx-60,cy-90),point(2,cx,cy-90),point(3,cx+60,cy-90)]);
+    await finish();
+    assert.deepEqual(await actions(),[{type:'task_view'}],'three fingers up must open Task View exactly once');
+    await reset();
+    await send('touchStart',[point(1,cx-60,cy),point(2,cx,cy),point(3,cx+60,cy)]);
+    await send('touchMove',[point(1,cx-60,cy+70),point(2,cx,cy+70),point(3,cx+60,cy+70)]);
+    await finish();
+    assert.deepEqual(await actions(),[],'three fingers down must not open Task View or scroll');
+    await page.evaluate(()=>window.mandoZoomChanged(false));
+    await start();
+    await send('touchMove',[point(1,cx-80,cy),point(2,cx+80,cy)]);
+    await finish();
+    assert.deepEqual(await actions(),[],'unconfigured zoom must not send keyboard zoom fallback');
     assert.deepEqual(errors,[]);
-    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement and tap: passed');
+    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement, tap, Task View and zoom setup guard: passed');
   } finally {
     if(browser)await browser.close();
     await new Promise(resolve=>server.close(resolve));

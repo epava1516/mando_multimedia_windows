@@ -16,4 +16,4 @@ Las notas citan hashes e identificadores REA del análisis. Los APK originales, 
 
 ## Zoom
 
-[Combinaciones completas y evidencia del servidor](PINCH_ZOOM.md). Se utilizan símbolos literales + y -, con Ctrl, en un frame por paso. El efecto depende de la aplicación con foco; no se mantiene un modificador entre datagramas.
+[Combinaciones completas y evidencia del servidor](PINCH_ZOOM.md). Rc.1 usaba Ctrl+más/menos y el usuario confirmó zoom de página. Rc.2 lo sustituye por los accesos directos del complemento táctil opcional de Firefox; no mantiene modificadores entre datagramas. Vista de tareas usa Win+Tab.

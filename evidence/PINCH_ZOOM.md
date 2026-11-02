@@ -1,3 +1,13 @@
+# Zoom: comportamiento observado y corrección
+
+El usuario comprobó 0.4.2-rc.1: Ctrl+más/menos cambia el zoom de la página (reflow), mientras que el objetivo es ampliación visual en Firefox. Estos frames se retiraron de la candidata actual.
+
+0.4.2-rc.2 envía Ctrl+Alt+F12/F11 como combinaciones completas para los accesos directos del complemento opcional MandoTouchZoom. Este utiliza InitializeTouchInjection e InjectTouchInput para un gesto táctil de dos contactos, con Firefox en primer plano y centro alrededor del cursor. La vía táctil hacia APZ se documenta en [Mozilla](https://firefox-source-docs.mozilla.org/widget/windows/windows-pointing-device/index.html) y la API en [Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-injecttouchinput). La respuesta de Firefox en el PC no se ha observado desde el entorno Linux.
+
+La Vista de tareas usa una combinación completa Win+Tab: `key 14[kld]tab[*]cmd`. Función de Windows documentada por [Microsoft](https://support.microsoft.com/en-gb/accessibility/windows/keyboard-shortcuts-in-windows).
+
+## Evidencia histórica del intento de atajo (rc.1)
+
 # Zoom de un solo paso: análisis del servidor
 
 Inspección estática del servidor oficial; no se enviaron controles al PC. Ensamblado SHA-256 `e9b98e6cce2cb7dbdaec44828aafd6be17c5ffe30f24b17bcaa95edf5d2cd4a7`, evidencia REA `ev_21ab3f299b569e851d29851c9630a2af107cfe94a917f3b52bef3acd4d1182b4`. Selección del CIL: `/tmp/remote-mouse-analysis/zoom-selected-paths.json`.

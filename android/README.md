@@ -1,4 +1,4 @@
-# Mando Android · candidata 0.4.2-rc.1
+# Mando Android · candidata 0.4.2-rc.2
 
 APK propio, paquete `net.mando.personal`, nombre **Mando**. No sustituye ni modifica Remote Mouse. Requiere Android 9 o posterior y el servidor oficial de Windows 5.30 o posterior con TCP y UDP 1978 accesibles.
 
@@ -58,8 +58,10 @@ La conexión, el botón Desconectar y el estado de operaciones se muestran únic
 
 En Ajustes, **Mostrar pestaña IR** permite ocultar o mostrar el mando de TV. La preferencia se guarda en cada móvil. Sin emisor compatible, la pestaña empieza oculta por defecto; se puede mostrar manualmente para consultar el panel (sus botones permanecen desactivados).
 
-## Zoom con dos dedos (0.4.2-rc.1)
+## Gestos (0.4.2-rc.2)
 
-Separa dos dedos sobre el touchpad para ampliar y júntalos para reducir. El movimiento paralelo de dos dedos conserva el scroll. Cada gesto se clasifica tras un umbral y no mezcla zoom con scroll hasta levantar los dedos. La sensibilidad del cursor no altera ese umbral.
+Separa dos dedos sobre el touchpad para ampliar visualmente una zona de Firefox y júntalos para reducir. El centro del zoom es la posición del cursor en el PC: coloca primero el ratón sobre la zona deseada. Instala y prueba una vez [MandoTouchZoom](../windows-zoom/README.md) en Windows y confírmalo desde Ajustes → Configurar zoom visual. Sin esa confirmación no se envían atajos de zoom de página como alternativa.
 
-El zoom envía combinaciones completas Ctrl+más/menos a la aplicación que tenga el foco. Cada datagrama incluye pulsación y liberación de Ctrl; no se deja el modificador mantenido entre paquetes. Requiere que la aplicación admita esos atajos. Validación del protocolo en `../evidence/PINCH_ZOOM.md`; prueba física pendiente.
+La APK envía Ctrl+Alt+F12/F11 completos al servidor oficial; los accesos directos de Windows lanzan un gesto táctil de dos contactos. El complemento actúa solo con Firefox en primer plano y el cursor en su área cliente; su recepción por Firefox necesita prueba física. No añade un servidor de red.
+
+El movimiento paralelo de dos dedos conserva el scroll. El gesto se clasifica tras un umbral y no mezcla zoom con scroll hasta levantar los dedos. Tres dedos hacia arriba abren una vez la Vista de tareas mediante Win+Tab para seleccionar ventanas o escritorios virtuales. La sensibilidad del cursor no altera los umbrales de gestos.

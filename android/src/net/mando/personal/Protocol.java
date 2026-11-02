@@ -31,7 +31,11 @@ final class Protocol {
 
     static byte[] zoom(boolean enlarge) {
         // One complete Ctrl+key combination; no modifier is held across UDP packets.
-        return frame("key", "[kld]" + (enlarge ? "+" : "-") + "[*]ctrl");
+        return frame("key", "[kld]" + (enlarge ? "f12" : "f11") + "[*]ctrl[*]alt");
+    }
+
+    static byte[] taskView() {
+        return frame("key", "[kld]tab[*]cmd");
     }
 
     static byte[] move(int dx, int dy) {
