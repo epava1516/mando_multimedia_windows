@@ -5,6 +5,8 @@ import datetime as dt
 import hashlib
 import ipaddress
 import json
+import os
+import re
 from pathlib import Path
 import secrets
 import socket
@@ -88,14 +90,73 @@ def send(connection, value):
 
 
 class State:
-    def __init__(self, adapter, clock=time.monotonic):
+    def __init__(self, adapter, clock=time.monotonic, device_file=None):
         self.adapter, self.clock = adapter, clock
         self.pin = f'{secrets.randbelow(100000000):08d}'
         self.pin_until = clock()+600
         self.attempts, self.actions = deque(maxlen=10), deque(maxlen=120)
         self.clients = 0
-        self.guard = threading.Lock()
+        self.device_file = Path(device_file) if device_file else None
+        self.devices = self.load_devices()
+        self.guard = threading.RLock()
         self.input_guard = threading.Lock()
+
+    def load_devices(self):
+        if self.device_file is None or not self.device_file.exists(): return {}
+        if self.device_file.stat().st_size > 4096: raise ValueError('Registro de dispositivos excesivo')
+        devices = json.loads(self.device_file.read_text(encoding='utf-8'))
+        if not isinstance(devices,dict) or len(devices)>4: raise ValueError('Registro invalido')
+        for name,digest in devices.items():
+            if not re.fullmatch(r'[a-f0-9]{32}',name) or not isinstance(digest,str) or not re.fullmatch(r'[a-f0-9]{64}',digest):
+                raise ValueError('Registro invalido')
+        return devices
+
+    def save_devices(self):
+        if self.device_file is None:return
+        temporary=self.device_file.with_name('devices-'+secrets.token_hex(8)+'.tmp')
+        try:
+            with temporary.open('x',encoding='utf-8') as output:
+                temporary.chmod(0o600)
+                json.dump(self.devices,output,separators=(',',':'))
+            os.replace(temporary,self.device_file)
+        finally:temporary.unlink(missing_ok=True)
+
+    def pair_device(self,pin):
+        with self.guard:
+            if not self.pair(pin):return None
+            try:return self.issue_device()
+            except BaseException:self.clients-=1;raise
+
+    def issue_device(self):
+        with self.guard:
+            if len(self.devices)>=4:raise ValueError('Maximo cuatro dispositivos')
+            name,token=secrets.token_hex(16),secrets.token_urlsafe(32)
+            self.devices[name]=hashlib.sha256(token.encode('ascii')).hexdigest()
+            try:self.save_devices()
+            except BaseException:self.devices.pop(name,None);raise
+            return {'id':name,'token':token}
+
+    def resume(self,name,token):
+        if not isinstance(name,str) or not isinstance(token,str) or not re.fullmatch(r'[a-f0-9]{32}',name) or not re.fullmatch(r'[A-Za-z0-9_-]{43}',token):return False
+        with self.guard:
+            now=self.clock()
+            if len(self.attempts)==10 and now-self.attempts[0]<60:return False
+            self.attempts.append(now)
+            expected=self.devices.get(name,'')
+            if self.clients>=4 or not expected or not secrets.compare_digest(expected,hashlib.sha256(token.encode('ascii')).hexdigest()):return False
+            self.clients+=1;return True
+
+    def device_authorized(self,name):
+        with self.guard:return name in self.devices
+
+    def revoke_devices(self):
+        with self.guard:
+            previous=self.devices;self.devices={}
+            try:self.save_devices()
+            except BaseException:self.devices=previous;raise
+            self.pin=f'{secrets.randbelow(100000000):08d}'
+            self.pin_until=self.clock()+600
+            self.attempts.clear()
 
     def pair(self, pin):
         with self.guard:
@@ -104,7 +165,7 @@ class State:
                 return False
             self.attempts.append(now)
             if (now > self.pin_until or not isinstance(pin, str) or len(pin) != 8 or
-                    not pin.isascii() or not pin.isdigit() or not secrets.compare_digest(pin, self.pin) or self.clients >= 4):
+                    not pin.isascii() or not pin.isdigit() or not secrets.compare_digest(pin, self.pin) or self.clients >= 4 or len(self.devices)>=4):
                 return False
             self.clients += 1
             return True
@@ -132,7 +193,7 @@ class State:
 
     def capabilities(self):
         return {'input': True, 'lock': True, 'task_view': True,
-                'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput)}
+                'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput),'persistent_pairing':True}
 
 
 class Handler(socketserver.BaseRequestHandler):
@@ -143,15 +204,24 @@ class Handler(socketserver.BaseRequestHandler):
             connection = self.server.context.wrap_socket(self.request, server_side=True)
             send(connection, {'server':'mando', 'protocol':1})
             request = receive(connection)
-            if request.get('op') != 'pair' or (type(request.get('protocol')) is not int or request.get('protocol') != 1) or not self.server.state.pair(request.get('pin')):
-                send(connection, {'error':'Emparejamiento rechazado o caducado'})
+            protocol_ok=type(request.get('protocol')) is int and request.get('protocol')==1
+            credential=None;device=None
+            if protocol_ok and request.get('op')=='pair':
+                credential=self.server.state.pair_device(request.get('pin'))
+                if credential:paired=True;device=credential['id']
+            elif protocol_ok and request.get('op')=='resume' and self.server.state.resume(request.get('device'),request.get('token')):
+                paired=True;device=request['device']
+            if not paired:
+                send(connection, {'error':'Emparejamiento rechazado, revocado o caducado'})
                 return
-            paired = True
-            send(connection, {'ok':True, 'protocol':1, 'capabilities':self.server.state.capabilities()})
+            response={'ok':True,'protocol':1,'capabilities':self.server.state.capabilities()}
+            if credential:response['device']=credential
+            send(connection,response)
             connection.settimeout(30)
             started, sequence = time.monotonic(), 0
             while time.monotonic()-started < 8*3600:
                 request = receive(connection, 30)
+                if not self.server.state.device_authorized(device):raise ValueError('Dispositivo revocado')
                 number = integer(request.get('id'), 1, 2147483647)
                 if number != sequence+1:
                     raise ValueError('Secuencia invalida; no se repiten acciones')
@@ -254,8 +324,11 @@ def main():
     host = private_ipv4(arguments.host, arguments.dry_run)
     integer(arguments.port, 1024, 65535)
     adapter = DryRunInput() if arguments.dry_run else WindowsInput()
-    state = State(adapter)
-    context, fingerprint = identity(Path(__file__).resolve().parent/'.state')
+    directory=Path(__file__).resolve().parent/'.state'
+    context, fingerprint = identity(directory)
+    if not arguments.dry_run and (not adapter.secure_desktop_available() or not adapter.zoom_available()):
+        raise RuntimeError('Instala primero Instalar-MandoCompleto.ps1 y ejecuta el servidor desde la cuenta autorizada')
+    state = State(adapter,device_file=directory/'devices.json')
     with Server((host, arguments.port), state, context) as server:
         print('Mando servidor propio v1'+(' — SIMULACION SIN ENTRADA' if arguments.dry_run else ''), flush=True)
         def print_code():
@@ -267,8 +340,10 @@ def main():
                 except (EOFError, OSError): return
                 if command.strip().lower() == 'r':
                     state.rotate_pin(); print_code()
+                elif command.strip().upper() == 'REVOKE':
+                    state.revoke_devices();print('Dispositivos revocados.',flush=True);print_code()
         print_code()
-        print('R y Enter genera otro codigo. Ctrl+C cierra las sesiones.', flush=True)
+        print('R genera otro codigo. REVOKE revoca dispositivos. Ctrl+C cierra sesiones.', flush=True)
         print('No compartas el codigo fuera de tus dispositivos.', flush=True)
         threading.Thread(target=console,daemon=True).start()
         try:

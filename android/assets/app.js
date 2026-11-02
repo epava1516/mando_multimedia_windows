@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 let paired = false;
 let connectionMode = 'official';
+let ownDeviceSaved = false;
 let activeTab = 'touch';
 let irAvailable = false;
 let zoomHelperReady = false;
@@ -143,6 +144,7 @@ $('lock-setup').addEventListener('click', () => api('/api/lock-setup', {}).catch
 api('/api/settings').then(settings => {
   setSensitivity(settings.sensitivity); window.mandoLockChanged(settings.lockHelperInstalled || false);
   setIrTabVisible(settings.irTabVisible !== false);
+  setOwnDeviceSaved(settings.ownDeviceSaved || false);
   window.mandoZoomChanged(settings.zoomHelperInstalled || false);
 }).catch(error => status(error.message, true));
 setInterval(() => {
@@ -187,10 +189,24 @@ function key(name, explicitMods) {
   flushMove(true);
   return action({type: 'key', key: name, modifiers: selected});
 }
+function setOwnDeviceSaved(saved) {
+  ownDeviceSaved = Boolean(saved);
+  $('forget-own').hidden = !ownDeviceSaved;
+  document.querySelector('.settings-tools').classList.toggle('saved-own',ownDeviceSaved);
+  $('own-code').required = $('server-mode').value === 'own' && !ownDeviceSaved;
+  $('own-code').placeholder = ownDeviceSaved ? 'Guardado · código opcional para otro PC' : 'Código mando1 del PC';
+}
+$('forget-own').addEventListener('click',async () => {
+  try {
+    await api('/api/own-forget',{});setOwnDeviceSaved(false);
+    if(connectionMode === 'own')setPaired(false);
+    status('Dispositivo olvidado en este móvil. REVOKE en Windows revoca los dispositivos autorizados.');
+  }catch(error){status(error.message,true);}
+});
 $('server-mode').addEventListener('change', () => {
   const own = $('server-mode').value === 'own';
   $('pin').hidden = own; $('pin').disabled = own;
-  $('own-code').hidden = !own; $('own-code').disabled = !own; $('own-code').required = own;
+  $('own-code').hidden = !own; $('own-code').disabled = !own; $('own-code').required = own && !ownDeviceSaved;
   $('pair-label').textContent = own ? 'Código que muestra Mando en Windows' : 'IP del ordenador';
   $('pair-label').htmlFor = own ? 'own-code' : 'pin';
   $('scan').hidden = own;
@@ -203,6 +219,7 @@ $('pair-form').addEventListener('submit', async event => {
     const mode = $('server-mode').value;
     const connection = await api('/api/pair', {mode, host: $('pin').value.trim(), code:$('own-code').value.trim()});
     connectionMode = connection.mode || mode;
+    if (connectionMode === 'own') setOwnDeviceSaved(true);
     $('own-code').value = '';
     window.mandoLockChanged(connection.lockHelperInstalled || connection.directLock || false);
     window.mandoZoomChanged(connection.zoomHelperInstalled || false);

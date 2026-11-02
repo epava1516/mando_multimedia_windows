@@ -84,7 +84,7 @@ class WindowsInput:
         return self.desktop_bridge.available()
 
     def zoom_path(self):
-        integrated = Path(os.environ['ProgramFiles']) / 'MandoDesktop' / 'MandoTouchZoom.exe'
+        integrated = Path(os.environ.get('ProgramW6432') or os.environ['ProgramFiles']) / 'MandoDesktop' / 'MandoTouchZoom.exe'
         if integrated.is_file(): return integrated
         return Path(os.environ['LOCALAPPDATA']) / 'MandoTouchZoom' / 'MandoTouchZoom.exe'
 

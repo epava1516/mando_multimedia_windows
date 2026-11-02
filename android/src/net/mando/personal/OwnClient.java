@@ -31,22 +31,34 @@ final class OwnClient implements InputClient {
     boolean isDryRun() {return capabilities.optBoolean("dry_run",false);}
     boolean supportsZoom() {return capabilities.optBoolean("zoom",false);}
 
-    void connect(Network network, String code) throws Exception {
-        if(code==null || !code.matches("mando1:[0-9.]{7,15}:[0-9]{4,5}:[a-fA-F0-9]{64}:[0-9]{8}"))
-            throw new IOException("Pega el código mando1 completo que muestra tu PC");
-        String[] fields=code.split(":");
-        InetAddress address=RemoteClient.privateAddress(fields[1]);
-        int port=Integer.parseInt(fields[2]);
-        if(port<1024 || port>65535)throw new IOException("Puerto propio inválido");
+    JSONObject connect(Network network, String code, JSONObject saved) throws Exception {
+        JSONObject profile;
+        JSONObject authentication;
+        if(code!=null && !code.isEmpty()) {
+            if(!code.matches("mando1:[0-9.]{7,15}:[0-9]{4,5}:[a-fA-F0-9]{64}:[0-9]{8}"))
+                throw new IOException("Pega el código mando1 completo que muestra tu PC");
+            String[] fields=code.split(":");
+            profile=new JSONObject().put("host",fields[1]).put("port",Integer.parseInt(fields[2])).put("fingerprint",fields[3]);
+            authentication=new JSONObject().put("op","pair").put("protocol",1).put("pin",fields[4]);
+        } else {
+            if(saved==null)throw new IOException("Introduce el código del PC la primera vez");
+            profile=new JSONObject(saved.toString());
+            if(!profile.getString("id").matches("[a-f0-9]{32}")||!profile.getString("token").matches("[A-Za-z0-9_-]{43}"))throw new IOException("Dispositivo guardado inválido");
+            authentication=new JSONObject().put("op","resume").put("protocol",1).put("device",profile.getString("id")).put("token",profile.getString("token"));
+        }
+        String host=profile.getString("host"),fingerprint=profile.getString("fingerprint");
+        InetAddress address=RemoteClient.privateAddress(host);
+        int port=profile.getInt("port");
+        if(port<1024||port>65535||!fingerprint.matches("[a-fA-F0-9]{64}"))throw new IOException("Identidad propia inválida");
         final byte[] pin=new byte[32];
-        for(int i=0;i<32;i++)pin[i]=(byte)Integer.parseInt(fields[3].substring(i*2,i*2+2),16);
+        for(int i=0;i<32;i++)pin[i]=(byte)Integer.parseInt(fingerprint.substring(i*2,i*2+2),16);
         SSLContext context=SSLContext.getInstance("TLS");
         context.init(null,new TrustManager[]{new PinnedTrust(pin)},null);
         close();Socket raw=new Socket();socket=raw;
         try {
             network.bindSocket(raw);raw.setTcpNoDelay(true);raw.setSoTimeout(5000);
             raw.connect(new InetSocketAddress(address,port),3000);
-            SSLSocket tls=(SSLSocket)context.getSocketFactory().createSocket(raw,fields[1],port,true);
+            SSLSocket tls=(SSLSocket)context.getSocketFactory().createSocket(raw,host,port,true);
             if(socket!=raw){tls.close();throw new IOException("Conexión cancelada");}
             socket=tls;tls.setSoTimeout(5000);java.util.List<String> protocols=new java.util.ArrayList<>();
             for(String protocol:tls.getSupportedProtocols())if("TLSv1.2".equals(protocol)||"TLSv1.3".equals(protocol))protocols.add(protocol);
@@ -54,12 +66,18 @@ final class OwnClient implements InputClient {
             input=new DataInputStream(tls.getInputStream());output=new DataOutputStream(tls.getOutputStream());
             JSONObject greeting=read();
             if(!"mando".equals(greeting.optString("server")) || greeting.optInt("protocol")!=1)throw new IOException("Servidor propio incompatible");
-            write(new JSONObject().put("op","pair").put("protocol",1).put("pin",fields[4]));
+            write(authentication);
             JSONObject reply=read();
             if(!reply.optBoolean("ok") || reply.optInt("protocol")!=1)throw new IOException("Código caducado o emparejamiento rechazado en el PC");
             capabilities=reply.getJSONObject("capabilities");sequence=0;
             if(socket!=tls)throw new IOException("Conexión cancelada");
-            ready=true;
+            if(reply.has("device")) {
+                JSONObject device=reply.getJSONObject("device");
+                if(!device.getString("id").matches("[a-f0-9]{32}")||!device.getString("token").matches("[A-Za-z0-9_-]{43}"))throw new IOException("Autorización propia inválida");
+                profile.put("id",device.getString("id")).put("token",device.getString("token"));
+            }
+            if(!profile.has("token"))throw new IOException("Actualiza el servidor propio para guardar el dispositivo");
+            ready=true;return profile;
         }catch(Exception error){close();throw error;}
     }
     private JSONObject read() throws Exception {

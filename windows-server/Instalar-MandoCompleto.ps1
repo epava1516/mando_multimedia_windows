@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSEdition -ne 'Desktop') { throw 'Usa Windows PowerShell 5.1.' }
 $identity = New-Object Security.Principal.SecurityIdentifier($UserSid)
 if (-not $identity.IsAccountSid() -or $UserSid -notmatch '^S-1-5-21-[0-9-]+$') { throw 'Indica el SID de la cuenta que ejecutara el servidor Mando.' }
-$root = Join-Path $env:ProgramFiles 'MandoDesktop'
+$root = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'MandoDesktop'
 $marker = Join-Path $root 'mando-install.json'
 $serviceName = 'MandoDesktopBroker'
 if ((Test-Path -LiteralPath $root) -or (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) {

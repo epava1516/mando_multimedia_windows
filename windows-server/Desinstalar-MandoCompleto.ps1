@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 #requires -RunAsAdministrator
 $ErrorActionPreference = 'Stop'
-$root = Join-Path $env:ProgramFiles 'MandoDesktop'
+$root = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'MandoDesktop'
 $marker = Join-Path $root 'mando-install.json'
 if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'No se reconoce una instalacion propia de MandoDesktop.' }
 $item = Get-Item -LiteralPath $root -Force

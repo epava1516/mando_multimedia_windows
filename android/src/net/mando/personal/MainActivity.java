@@ -46,12 +46,14 @@ public final class MainActivity extends Activity {
     private volatile boolean destroyed;
     private volatile boolean foreground;
     private InfraredController infrared;
+    private DeviceStore deviceStore;
     private volatile boolean imeVisible;
     private boolean zoomSetupShowing;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         infrared = new InfraredController(this);
+        deviceStore = new DeviceStore(this);
         if(Build.VERSION.SDK_INT>=30)getWindow().setDecorFitsSystemWindows(false);
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -181,6 +183,11 @@ public final class MainActivity extends Activity {
 
     private void showZoomSetup() {
         if(destroyed || isFinishing() || zoomSetupShowing)return;
+        if(client==ownClient) {
+            new AlertDialog.Builder(this).setTitle("Zoom integrado")
+                .setMessage("El paquete completo de Windows incluye el zoom visual. Coloca el cursor sobre Firefox y pellizca en Control. Si falta el componente, instala Instalar-MandoCompleto.ps1 y vuelve a conectar.")
+                .setPositiveButton("Cerrar",null).show();return;
+        }
         zoomSetupShowing = true;
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Zoom visual de Firefox")
             .setMessage("Instala MandoTouchZoom una vez en Windows. Comprueba Ctrl+Alt+F12 para ampliar y Ctrl+Alt+F11 para reducir con Firefox activo y el cursor sobre la página. Después confirma aquí. El pellizco enviará esos gestos táctiles alrededor del cursor.")
@@ -240,6 +247,8 @@ public final class MainActivity extends Activity {
                             result.put("paired", client.isConnected());
                             result.put("dryRun", client==ownClient && ownClient.isDryRun());
                             result.put("imeVisible",imeVisible);
+                        } else if ("/api/own-forget".equals(path)) {
+                            ownClient.close();deviceStore.forget();result.put("ok",true);
                         } else if ("/api/zoom-setup".equals(path)) {
                             runOnUiThread(() -> showZoomSetup());result.put("ok",true);
                         } else if ("/api/lock-setup".equals(path)) {
@@ -268,6 +277,7 @@ public final class MainActivity extends Activity {
                                 if(!(value instanceof Boolean))throw new IOException("Preferencia IR inválida");
                                 getPreferences(MODE_PRIVATE).edit().putBoolean("irTabVisible",(Boolean)value).apply();
                             }
+                            result.put("ownDeviceSaved",deviceStore.hasSaved());
                             result.put("irTabVisible",getPreferences(MODE_PRIVATE).getBoolean("irTabVisible",infrared.isAvailable()));
                             result.put("sensitivity",getPreferences(MODE_PRIVATE).getFloat("sensitivity",0.65f));
                             result.put("lockHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false) || client==ownClient);
@@ -284,8 +294,13 @@ public final class MainActivity extends Activity {
                             if(!"own".equals(mode) && !"official".equals(mode))throw new IOException("Tipo de servidor inválido");
                             boolean own="own".equals(mode);
                             Network network=wifi();
-                            if(own)ownClient.connect(network,data.getString("code"));
-                            else officialClient.connect(network,data.getString("host"));
+                            if(own) {
+                                try {
+                                    String code=data.optString("code","");
+                                    JSONObject profile=ownClient.connect(network,code,code.isEmpty()?deviceStore.load():null);
+                                    deviceStore.save(profile);
+                                }catch(Exception error){ownClient.close();throw error;}
+                            } else officialClient.connect(network,data.getString("host"));
                             if(!foreground){officialClient.close();ownClient.close();throw new IOException("Conexión cancelada");}
                             client=own ? ownClient : officialClient;
                             result.put("ok", true).put("mode",own ? "own" : "official");

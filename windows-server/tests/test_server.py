@@ -27,7 +27,7 @@ class ProtocolTests(unittest.TestCase):
         state=server.State(Recorder())
         invalid=[{}, {'type':'shell','command':'whoami'}, {'type':'move','dx':True,'dy':0},
                  {'type':'move','dx':501,'dy':0}, {'type':'scroll','steps':1.5},
-                 {'type':'text','text':'\ud800'}, {'type':'text','text':'x'*501},
+                 {'type':'text','text':'\ud800'}, {'type':'text','text':'x'*501}, {'type':'text','text':'\x00'},
                  {'type':'key','key':'CTRL'}, {'type':'key','key':'A','modifiers':['CTRL','CTRL']},
                  {'type':'key','key':'A','modifiers':['INVALID']}, {'type':'zoom','steps':100}]
         for action in invalid:
@@ -90,6 +90,27 @@ class ProtocolTests(unittest.TestCase):
             adapter.execute({'type':'zoom','steps':-1})
             run.assert_called_once_with([str(helper),'out'],shell=False,timeout=2,creationflags=0x08000000,check=False)
 
+    def test_device_authorization_persists_as_hash_and_revokes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'devices.json'
+            state=server.State(Recorder(),device_file=path)
+            device=state.issue_device()
+            self.assertNotIn(device['token'],path.read_text())
+            restarted=server.State(Recorder(),device_file=path)
+            self.assertTrue(restarted.resume(device['id'],device['token']))
+            self.assertFalse(restarted.resume(device['id'],'a'*43))
+            old_pin=restarted.pin
+            restarted.revoke_devices()
+            self.assertFalse(restarted.pair(old_pin))
+            again=server.State(Recorder(),device_file=path)
+            self.assertFalse(again.resume(device['id'],device['token']))
+
+    def test_device_limit_is_enforced(self):
+        state=server.State(Recorder())
+        for _ in range(4):state.issue_device()
+        with self.assertRaises(ValueError):state.issue_device()
+        self.assertFalse(state.pair(state.pin))
+
     def test_fixed_windows_input_abi(self):
         import ctypes
         self.assertEqual(ctypes.sizeof(Input),40 if ctypes.sizeof(ctypes.c_void_p)==8 else 28)
@@ -127,7 +148,7 @@ class TLSTests(unittest.TestCase):
 
     def pair(self):
         connection=self.connect();server.send(connection,{'op':'pair','protocol':1,'pin':self.state.pin})
-        reply=server.receive(connection);self.assertTrue(reply['ok']);self.assertFalse(reply['capabilities']['secure_desktop'])
+        reply=server.receive(connection);self.last_device=reply['device'];self.assertTrue(reply['ok']);self.assertFalse(reply['capabilities']['secure_desktop'])
         return connection
 
     def test_tls_pair_actions_and_status(self):
@@ -140,6 +161,22 @@ class TLSTests(unittest.TestCase):
             self.assertEqual(server.receive(connection),{'ok':True,'id':number})
         self.assertEqual(self.adapter.executed,[server.validate_action(action) for action in actions])
         server.send(connection,{'op':'status','id':9});self.assertTrue(server.receive(connection)['capabilities']['dry_run'])
+
+    def test_resume_works_after_pin_expired(self):
+        first=self.pair();device=self.last_device;first.close()
+        self.state.pin_until=-1
+        connection=self.connect()
+        server.send(connection,{'op':'resume','protocol':1,'device':device['id'],'token':device['token']})
+        self.assertTrue(server.receive(connection)['ok'])
+        server.send(connection,{'op':'action','id':1,'action':{'type':'key','key':'ENTER'}})
+        self.assertTrue(server.receive(connection)['ok'])
+        self.assertEqual(len(self.adapter.executed),1)
+
+    def test_revocation_blocks_live_session(self):
+        connection=self.pair();self.state.revoke_devices()
+        server.send(connection,{'op':'action','id':1,'action':{'type':'click','button':'left'}})
+        with self.assertRaises((EOFError,OSError)):server.receive(connection)
+        self.assertEqual(self.adapter.executed,[])
 
     def test_no_input_before_pairing(self):
         connection=self.connect();server.send(connection,{'op':'action','id':1,'action':{'type':'lock'}})
@@ -170,9 +207,10 @@ class TLSTests(unittest.TestCase):
     def test_plaintext_cannot_pair(self):
         connection=socket.create_connection(self.server.server_address,timeout=2)
         try:
-            connection.sendall(b'{"op":"pair"}\n');connection.shutdown(socket.SHUT_WR)
-            try:self.assertEqual(connection.recv(100),b'')
-            except ConnectionResetError:pass
+            try:
+                connection.sendall(b'{"op":"pair"}\n');connection.shutdown(socket.SHUT_WR)
+                self.assertEqual(connection.recv(100),b'')
+            except OSError:pass  # TLS may reject and close before send/shutdown completes.
             self.assertEqual(self.state.clients,0)
         finally:connection.close()
 
