@@ -103,8 +103,11 @@ class DesktopBridge:
             except BaseException:self.close();raise
 
     def available(self):
-        try:return self.request({'op':'status'}).get('available') is True
-        except (OSError,ValueError):return False
+        # A status probe may reconnect after idle shutdown. Input is never retried.
+        for _ in range(2):
+            try:return self.request({'op':'status'}).get('available') is True
+            except (OSError,ValueError):pass
+        return False
 
     def execute(self,action):
         self.request({'op':'input','action':action})

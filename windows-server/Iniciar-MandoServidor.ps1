@@ -1,6 +1,12 @@
 ﻿#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
+$standalone = Join-Path $PSScriptRoot 'MandoServer.exe'
+if (Test-Path -LiteralPath $standalone -PathType Leaf) {
+    & $standalone
+    if ($LASTEXITCODE -ne 0) { throw 'El servidor se ha cerrado con un error.' }
+    return
+}
 $python = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python)) {
     & py -3.11 -m venv (Join-Path $PSScriptRoot '.venv')

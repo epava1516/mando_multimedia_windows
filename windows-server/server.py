@@ -317,14 +317,14 @@ def private_ipv4(value, dry_run=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--host', required=True)
+    parser.add_argument('--host')
     parser.add_argument('--port', type=int, default=PORT)
     parser.add_argument('--dry-run', action='store_true')
     arguments = parser.parse_args()
-    host = private_ipv4(arguments.host, arguments.dry_run)
+    host = private_ipv4(arguments.host or input('IPv4 Wi-Fi del PC (ipconfig): ').strip(), arguments.dry_run)
     integer(arguments.port, 1024, 65535)
     adapter = DryRunInput() if arguments.dry_run else WindowsInput()
-    directory=Path(__file__).resolve().parent/'.state'
+    directory=(Path(os.environ['LOCALAPPDATA'])/'MandoServer') if os.name=='nt' else Path(__file__).resolve().parent/'.state'
     context, fingerprint = identity(directory)
     if not arguments.dry_run and (not adapter.secure_desktop_available() or not adapter.zoom_available()):
         raise RuntimeError('Instala primero Instalar-MandoCompleto.ps1 y ejecuta el servidor desde la cuenta autorizada')
@@ -340,6 +340,8 @@ def main():
                 except (EOFError, OSError): return
                 if command.strip().lower() == 'r':
                     state.rotate_pin(); print_code()
+                elif command.strip().upper() == 'STOP':
+                    server.shutdown();return
                 elif command.strip().upper() == 'REVOKE':
                     state.revoke_devices();print('Dispositivos revocados.',flush=True);print_code()
         print_code()
