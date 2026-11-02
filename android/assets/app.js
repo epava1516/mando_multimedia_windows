@@ -292,14 +292,26 @@ document.querySelectorAll('[data-click]').forEach(b => b.addEventListener('click
 }));
 document.querySelectorAll('[data-scroll]').forEach(b => b.addEventListener('click', () => action({type: 'scroll', steps: Number(b.dataset.scroll)}).catch(() => {})));
 const pointers = new Map();
-let multi = false, distance = 0, scroll = 0, startTime = 0;
+let multi = false, distance = 0, startTime = 0;
+let gesture = null, initialSpan = 0, initialY = 0, spanAnchor = 0, scrollAnchor = 0;
+function twoFingerGeometry() {
+  const [a, b] = [...pointers.values()];
+  return {span: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), y: (a.y + b.y) / 2};
+}
 const pad = $('touchpad');
 pad.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   event.preventDefault(); pad.setPointerCapture(event.pointerId);
-  if (!pointers.size) {multi = false; distance = 0; scroll = 0; startTime = Date.now();}
+  if (!pointers.size) {multi = false; distance = 0; gesture = null; startTime = Date.now();}
   pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
-  if (pointers.size > 1) multi = true;
+  if (pointers.size > 1) {
+    multi = true; dx = dy = 0;
+    if (pointers.size === 2 && gesture !== 'blocked') {
+      const geometry = twoFingerGeometry();
+      initialSpan = spanAnchor = geometry.span;
+      initialY = scrollAnchor = geometry.y;
+    } else gesture = 'blocked';
+  }
 });
 pad.addEventListener('pointermove', event => {
   const old = pointers.get(event.pointerId);
@@ -308,14 +320,35 @@ pad.addEventListener('pointermove', event => {
   distance += Math.abs(x) + Math.abs(y);
   pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
   if (pointers.size > 1) {
-    scroll += y / pointers.size;
-    const steps = Math.trunc(scroll / 20);
-    if (steps) {scroll -= steps * 20; action({type: 'scroll', steps: Math.max(-10, Math.min(10, -steps))}).catch(() => {});}
+    if (pointers.size !== 2 || gesture === 'blocked') return;
+    const geometry = twoFingerGeometry();
+    if (!gesture) {
+      const pinchTravel = Math.abs(geometry.span - initialSpan);
+      const scrollTravel = Math.abs(geometry.y - initialY);
+      if (pinchTravel >= 12 && pinchTravel > scrollTravel * 1.3) gesture = 'pinch';
+      else if (scrollTravel >= 12 && scrollTravel > pinchTravel * 1.3) gesture = 'scroll';
+      else return;
+    }
+    // Lock the gesture until all fingers lift; a pinch never also scrolls.
+    if (gesture === 'pinch') {
+      const steps = Math.max(-3, Math.min(3, Math.trunc(Math.log(geometry.span / spanAnchor) / Math.log(1.18))));
+      if (steps) {
+        spanAnchor *= Math.pow(1.18, steps);
+        action({type: 'zoom', steps}).catch(() => {});
+      }
+    } else {
+      const steps = Math.max(-10, Math.min(10, Math.trunc((scrollAnchor - geometry.y) / 20)));
+      if (steps) {
+        scrollAnchor -= steps * 20;
+        action({type: 'scroll', steps}).catch(() => {});
+      }
+    }
   } else if (!multi) {dx += x * sensitivity; dy += y * sensitivity;}
 });
 function endPointer(event) {
   if (!pointers.has(event.pointerId)) return;
   pointers.delete(event.pointerId);
+  if (pointers.size) gesture = 'blocked';
   if (!pointers.size) {
     flushMove(true);
     if (event.type === 'pointerup' && !multi && distance < 8 && Date.now() - startTime < 500) action({type: 'click', button: 'left'}).catch(() => {});

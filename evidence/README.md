@@ -13,3 +13,7 @@ La selección UDP coincide con la app Android original para versiones de servido
 [Extracción y conversión del perfil](LEAN_IR.md). [Datos mínimos de los cinco comandos](lgtv1-exact-codes.json). El usuario confirmó que todos responden en su televisor.
 
 Las notas citan hashes e identificadores REA del análisis. Los APK originales, bases de datos completas y volcados de herramientas se conservaron localmente durante el desarrollo y no se redistribuyen aquí.
+
+## Zoom
+
+[Combinaciones completas y evidencia del servidor](PINCH_ZOOM.md). Se utilizan símbolos literales + y -, con Ctrl, en un frame por paso. El efecto depende de la aplicación con foco; no se mantiene un modificador entre datagramas.

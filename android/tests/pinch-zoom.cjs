@@ -1,0 +1,89 @@
+'use strict';
+// Optional browser regression test. PLAYWRIGHT_MODULE and MANDO_CHROMIUM can select local installs.
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const assets = path.resolve(__dirname, '../assets');
+const server = http.createServer((request, response) => {
+  const names = {'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
+  const file = names[request.url];
+  if (!file) {response.writeHead(404); response.end(); return;}
+  response.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+  response.end(fs.readFileSync(path.join(assets, file)));
+});
+(async () => {
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  let browser;
+  try {
+    browser = await chromium.launch({headless:true, ...(process.env.MANDO_CHROMIUM ? {executablePath:process.env.MANDO_CHROMIUM} : {})});
+    const page = await browser.newPage({viewport:{width:390,height:800},hasTouch:true});
+    const errors=[]; page.on('pageerror', error => errors.push(error.message));
+    await page.addInitScript(() => {
+      window.actions=[];
+      window.MandoNative={request(id, raw) {
+        const {path, data}=JSON.parse(raw);
+        if (path==='/api/action') window.actions.push(data);
+        const result = path==='/api/status' ? {paired:true} : path==='/api/settings' ?
+          {sensitivity:.65,irTabVisible:true} : path==='/api/ir/status' ? {available:true} : {ok:true};
+        setTimeout(()=>window.nativeReply(id,result),0);
+      }};
+    });
+    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    await page.locator('#touchpad').waitFor({state:'visible'});
+    const bounds = await page.locator('#touchpad').boundingBox();
+    const cx=bounds.x+bounds.width/2, cy=bounds.y+bounds.height/2;
+    const cdp=await page.context().newCDPSession(page);
+    const point=(id,x,y)=>({id,x,y,radiusX:3,radiusY:3,force:1});
+    async function send(type, points) {
+      await cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points});
+      await page.waitForTimeout(35);
+    }
+    async function reset() {await page.evaluate(()=>window.actions=[]);}
+    async function actions() {await page.waitForTimeout(80);return page.evaluate(()=>window.actions);}
+    async function start(span=100) {await reset();await send('touchStart',[point(1,cx-span/2,cy),point(2,cx+span/2,cy)]);}
+    const finish=()=>send('touchEnd',[]);
+    await start();
+    await send('touchMove',[point(1,cx-80,cy),point(2,cx+80,cy)]);
+    await finish();
+    let sent=await actions();
+    assert(sent.some(action=>action.type==='zoom'&&action.steps>0),'spread must enlarge');
+    assert(sent.every(action=>action.type==='zoom'),'spread must not also scroll, click or move');
+    await start(160);
+    await send('touchMove',[point(1,cx-45,cy),point(2,cx+45,cy)]);
+    await finish();
+    sent=await actions();
+    assert(sent.some(action=>action.type==='zoom'&&action.steps<0),'pinch must reduce');
+    assert(sent.every(action=>action.type==='zoom'),'pinch must not also scroll, click or move');
+    await start();
+    await send('touchMove',[point(1,cx-50,cy+50),point(2,cx+50,cy+50)]);
+    await finish();
+    sent=await actions();
+    assert(sent.some(action=>action.type==='scroll'),'parallel fingers must scroll');
+    assert(sent.every(action=>action.type==='scroll'),'scroll must not also zoom');
+    await start();
+    await send('touchMove',[point(1,cx-52,cy+2),point(2,cx+52,cy+2)]);
+    await finish();
+    assert.deepEqual(await actions(),[],'small two-finger jitter must not send controls');
+    await start();
+    await send('touchCancel',[]);
+    assert.deepEqual(await actions(),[],'cancellation must not click');
+    await reset();
+    await send('touchStart',[point(1,cx,cy)]);
+    await send('touchMove',[point(1,cx+30,cy+20)]);
+    await finish();
+    sent=await actions();
+    assert(sent.some(action=>action.type==='move'),'one finger must still move cursor');
+    assert(!sent.some(action=>action.type==='zoom'||action.type==='scroll'),'one finger must not zoom or scroll');
+    await reset();
+    await send('touchStart',[point(1,cx,cy)]);
+    await finish();
+    assert.equal((await actions()).filter(action=>action.type==='click').length,1,'tap must click once');
+    assert.deepEqual(errors,[]);
+    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement and tap: passed');
+  } finally {
+    if(browser)await browser.close();
+    await new Promise(resolve=>server.close(resolve));
+  }
+})().catch(error=>{console.error(error);process.exitCode=1;server.close();});

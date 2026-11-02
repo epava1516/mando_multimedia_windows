@@ -2,6 +2,8 @@
 
 **Versión estable 0.4.1.** App Android para manejar un PC Windows y un televisor LG desde el móvil. Validada por el usuario con Windows 11, Firefox/HBO Max y el perfil infrarrojo LGTV1.
 
+La rama de zoom prepara **0.4.2-rc.1**: abrir/separar dos dedos amplía y pellizcar reduce en aplicaciones que admiten Ctrl+más/menos. El gesto se distingue del scroll con dos dedos. Pendiente de confirmación física en el PC; `v0.4.1` sigue siendo la release estable.
+
 ## Funciones
 
 - Control: touchpad, clic izquierdo/derecho, scroll con dos dedos y teclado Android accesible desde el botón central.
@@ -48,3 +50,11 @@ java -cp android/build/test net.mando.personal.ProtocolTest
 Esta versión admite servidores que anuncian `nop`; rechaza los que exigen contraseña, sin omitir su autenticación. El transporte de controles es UDP de compatibilidad sin cifrado. No incluye vault y no debe utilizarse para enviar contraseñas. Usa una red local de confianza. [Detalles](SECURITY.md).
 
 Código y comportamiento de Android en [android/README.md](android/README.md); notas del protocolo y del perfil IR en [evidence/](evidence/README.md). Los prototipos previos, capturas, APK originales, volcados de ingeniería inversa y claves privadas no forman parte de este repositorio.
+
+Prueba de gestos con Chromium y Playwright instalados:
+
+```bash
+node android/tests/pinch-zoom.cjs
+```
+
+El script usa `playwright` por defecto. `PLAYWRIGHT_MODULE` permite indicar un módulo local y `MANDO_CHROMIUM` la ruta de Chromium. Simula el puente Android; no emite controles a un PC.

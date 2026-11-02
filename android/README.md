@@ -1,4 +1,4 @@
-# Mando Android · estable 0.4.1
+# Mando Android · candidata 0.4.2-rc.1
 
 APK propio, paquete `net.mando.personal`, nombre **Mando**. No sustituye ni modifica Remote Mouse. Requiere Android 9 o posterior y el servidor oficial de Windows 5.30 o posterior con TCP y UDP 1978 accesibles.
 
@@ -57,3 +57,9 @@ Solo se incorporan las cinco señales de ese perfil; no hace falta instalar ni e
 La conexión, el botón Desconectar y el estado de operaciones se muestran únicamente en Ajustes. Los errores fuera de Ajustes aparecen como avisos temporales; no hay registro permanente bajo Control, Teclado o IR.
 
 En Ajustes, **Mostrar pestaña IR** permite ocultar o mostrar el mando de TV. La preferencia se guarda en cada móvil. Sin emisor compatible, la pestaña empieza oculta por defecto; se puede mostrar manualmente para consultar el panel (sus botones permanecen desactivados).
+
+## Zoom con dos dedos (0.4.2-rc.1)
+
+Separa dos dedos sobre el touchpad para ampliar y júntalos para reducir. El movimiento paralelo de dos dedos conserva el scroll. Cada gesto se clasifica tras un umbral y no mezcla zoom con scroll hasta levantar los dedos. La sensibilidad del cursor no altera ese umbral.
+
+El zoom envía combinaciones completas Ctrl+más/menos a la aplicación que tenga el foco. Cada datagrama incluye pulsación y liberación de Ctrl; no se deja el modificador mantenido entre paquetes. Requiere que la aplicación admita esos atajos. Validación del protocolo en `../evidence/PINCH_ZOOM.md`; prueba física pendiente.
