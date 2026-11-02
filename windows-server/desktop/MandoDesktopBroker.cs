@@ -24,6 +24,7 @@ internal sealed class MandoDesktopBroker : ServiceBase {
     Process worker;
     uint workerSession;
     string allowedSid;
+    readonly object workerGate=new object();
 
     [StructLayout(LayoutKind.Sequential)] struct SA { public int length; public IntPtr descriptor; public int inherit; }
     [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)] struct STARTUPINFO {
@@ -145,7 +146,7 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         return new INPUT{type=1,data=new PAYLOAD{key=new KEY{vk=key,scan=unicode,flags=flags}}};
     }
     static INPUT Mouse(uint flags,int x,int y,int data) {return new INPUT{type=0,data=new PAYLOAD{mouse=new MOUSE{x=x,y=y,data=unchecked((uint)data),flags=flags}}};}
-    static INPUT[] Events(Dictionary<string,object> action) {
+    static INPUT[] BuildEvents(Dictionary<string,object> action) {
         List<INPUT> result=new List<INPUT>();string kind=Text(action,"type");
         switch(kind) {
             case "move":result.Add(Mouse(1,Number(action,"dx",-500,500),Number(action,"dy",-500,500),0));break;
@@ -178,10 +179,14 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         }
     }
     void StopWorker() {
+        lock(workerGate) {
         if(workerPipe!=null){workerPipe.Dispose();workerPipe=null;}
         if(worker!=null){try{if(!worker.HasExited)worker.Kill();}catch{}worker.Dispose();worker=null;}
+        }
     }
     void EnsureWorker(uint session) {
+        lock(workerGate) {
+        if(stopping)throw new IOException("Service stopping");
         if(worker!=null&&!worker.HasExited&&workerSession==session&&workerPipe!=null&&workerPipe.IsConnected)return;
         StopWorker();string nonce=Guid.NewGuid().ToString("N");workerPipe=NewPipe("Mando.Private."+nonce,null);
         IntPtr original=IntPtr.Zero,token=IntPtr.Zero;
@@ -202,6 +207,7 @@ internal sealed class MandoDesktopBroker : ServiceBase {
             if(!GetNamedPipeClientProcessId(workerPipe.SafePipeHandle,out peer)||peer!=process.pid)throw new IOException("Wrong worker identity");
         } catch {StopWorker();throw;}
         finally{if(process.process!=IntPtr.Zero)CloseHandle(process.process);if(process.thread!=IntPtr.Zero)CloseHandle(process.thread);if(token!=IntPtr.Zero)CloseHandle(token);if(original!=IntPtr.Zero)CloseHandle(original);}
+        }
     }
     bool Authorized(NamedPipeServerStream pipe,uint session) {
         uint clientSession;if(!GetNamedPipeClientSessionId(pipe.SafePipeHandle,out clientSession)||clientSession!=session)return false;
@@ -227,7 +233,7 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                             if(Text(request,"op")=="status") {Write(pipe,new{ok=true,available=true,locked=Locked(session),protocol=1});continue;}
                             object raw;Dictionary<string,object> action;
                             if(Text(request,"op")!="input"||!request.TryGetValue("action",out raw)||(action=raw as Dictionary<string,object>)==null)throw new IOException();
-                            Events(action); // Validate before creating any privileged worker.
+                            BuildEvents(action); // Validate before creating any privileged worker.
                             if(!Locked(session)) {Write(pipe,new{ok=false});continue;}
                             EnsureWorker(session);Write(workerPipe,action);Dictionary<string,object> response=Read(workerPipe,3000);
                             Write(pipe,new{ok=response.ContainsKey("ok")&&Object.Equals(response["ok"],true)});
@@ -255,7 +261,7 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                 try {
                     uint session=(uint)Process.GetCurrentProcess().SessionId;
                     if(session==WTSGetActiveConsoleSessionId()&&Locked(session)&&String.Equals(InputDesktop(),"Winlogon",StringComparison.OrdinalIgnoreCase)) {
-                        Execute(Events(action));ok=true;
+                        Execute(BuildEvents(action));ok=true;
                     }
                 } catch {}
                 Write(pipe,new{ok=ok});
@@ -264,10 +270,10 @@ internal sealed class MandoDesktopBroker : ServiceBase {
     }
     static int SelfTest() {
         int expected=IntPtr.Size==8?40:28;if(Marshal.SizeOf(typeof(INPUT))!=expected)throw new Exception("INPUT ABI");
-        if(Events(new Dictionary<string,object>{{"type","move"},{"dx",1},{"dy",-1}}).Length!=1)throw new Exception();
-        if(Events(new Dictionary<string,object>{{"type","text"},{"text","a\u00f1\ud83d\ude42"}}).Length!=8)throw new Exception();
-        try{Events(new Dictionary<string,object>{{"type","execute"},{"path","cmd.exe"}});throw new Exception("Accepted arbitrary action");}catch(IOException){}
-        try{Events(new Dictionary<string,object>{{"type","move"},{"dx",true},{"dy",0}});throw new Exception("Accepted boolean");}catch(IOException){}
+        if(BuildEvents(new Dictionary<string,object>{{"type","move"},{"dx",1},{"dy",-1}}).Length!=1)throw new Exception();
+        if(BuildEvents(new Dictionary<string,object>{{"type","text"},{"text","a\u00f1\ud83d\ude42"}}).Length!=8)throw new Exception();
+        try{BuildEvents(new Dictionary<string,object>{{"type","execute"},{"path","cmd.exe"}});throw new Exception("Accepted arbitrary action");}catch(IOException){}
+        try{BuildEvents(new Dictionary<string,object>{{"type","move"},{"dx",true},{"dy",0}});throw new Exception("Accepted boolean");}catch(IOException){}
         return 0;
     }
     [STAThread] static int Main(string[] args) {

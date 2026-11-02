@@ -208,7 +208,7 @@ $('pair-form').addEventListener('submit', async event => {
     window.mandoZoomChanged(connection.zoomHelperInstalled || false);
 
     setPaired(true);
-    status(connection.dryRun ? 'SIMULACIÓN: no se controla ningún ordenador.' : 'Conectado por Wi-Fi a ' + connection.version + (connectionMode === 'own' ? '. Sesión cifrada TLS; pantalla bloqueada aún no compatible.' : '. Los controles ya están disponibles.'));
+    status(connection.dryRun ? 'SIMULACIÓN: no se controla ningún ordenador.' : 'Conectado por Wi-Fi a ' + connection.version + (connectionMode === 'own' ? (connection.secureDesktop ? '. TLS y componente de pantalla bloqueada disponible.' : '. TLS; instala el componente completo para pantalla bloqueada.') : '. Los controles ya están disponibles.'));
   } catch (error) {status(error.message, true);}
   finally {$('pair-button').disabled = false;}
 });

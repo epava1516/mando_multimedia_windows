@@ -32,3 +32,13 @@ jobs:
         run: |
           python -m pip install -r windows-server/requirements.txt
           python -m unittest discover -s windows-server/tests -v
+      - name: Install local broker and verify pipe identity without input
+        shell: powershell
+        run: |
+          try {
+            & ./windows-server/Instalar-MandoCompleto.ps1
+            python -c "import sys,time; sys.path.insert(0,'windows-server'); from desktop_bridge import DesktopBridge; b=DesktopBridge(); ok=False; exec('for i in range(20):\n try:\n  b.connect(); ok=True; break\n except OSError:\n  time.sleep(.25)'); assert ok, 'Cannot connect to verified broker'; b.close()"
+            if ($LASTEXITCODE -ne 0) { throw 'Broker pipe identity check failed' }
+          } finally {
+            if (Test-Path "$env:ProgramFiles/MandoDesktop/mando-install.json") { & ./windows-server/Desinstalar-MandoCompleto.ps1 }
+          }

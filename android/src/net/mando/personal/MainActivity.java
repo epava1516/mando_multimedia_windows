@@ -291,6 +291,7 @@ public final class MainActivity extends Activity {
                             result.put("ok", true).put("mode",own ? "own" : "official");
                             result.put("version", own ? "Mando v1 TLS" : String.valueOf(officialClient.serverVersion()));
                             result.put("directLock",own).put("dryRun",own && ownClient.isDryRun());
+                            result.put("secureDesktop",own && ownClient.supportsSecureDesktop());
                             result.put("lockHelperInstalled",own || getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false));
                             result.put("zoomHelperInstalled",own ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
                         } else if ("/api/scan".equals(path)) {
