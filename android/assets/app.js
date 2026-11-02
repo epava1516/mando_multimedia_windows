@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 let paired = false;
+let connectionMode = 'official';
 let activeTab = 'touch';
 let irAvailable = false;
 let zoomHelperReady = false;
@@ -47,12 +48,12 @@ async function api(path, data) {
   if (!window.MandoNative) throw new Error('El puente Android no está disponible.');
   const id = String(++nativeSequence);
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {nativePending.delete(id); reject(new Error('El PC no responde; vuelve a conectar.'));}, path === '/api/scan' ? 30000 : 8000);
+    const timer = setTimeout(() => {nativePending.delete(id); reject(new Error('El PC no responde; vuelve a conectar.'));}, path === '/api/scan' ? 30000 : path === '/api/pair' ? 20000 : 8000);
     nativePending.set(id, {resolve, reject, timer});
     window.MandoNative.request(id, JSON.stringify({path, data}));
   });
 }
-window.mandoDisconnected = () => {setPaired(false); status('Desconectado al salir de la app.');};
+window.mandoDisconnected = () => {$('own-code').value = ''; setPaired(false); status('Desconectado al salir de la app.');};
 window.mandoKeyboardError = message => {status(message, true);};
 window.mandoImeChanged = visible => {
   document.body.classList.toggle('ime-open', Boolean(visible));
@@ -186,14 +187,28 @@ function key(name, explicitMods) {
   flushMove(true);
   return action({type: 'key', key: name, modifiers: selected});
 }
+$('server-mode').addEventListener('change', () => {
+  const own = $('server-mode').value === 'own';
+  $('pin').hidden = own; $('pin').disabled = own;
+  $('own-code').hidden = !own; $('own-code').disabled = !own; $('own-code').required = own;
+  $('pair-label').textContent = own ? 'Código que muestra Mando en Windows' : 'IP del ordenador';
+  $('pair-label').htmlFor = own ? 'own-code' : 'pin';
+  $('scan').hidden = own;
+  $('servers').replaceChildren();$('server-pages').hidden = true;
+});
 $('pair-form').addEventListener('submit', async event => {
   event.preventDefault();
   $('pair-button').disabled = true;
   try {
-    const connection = await api('/api/pair', {host: $('pin').value.trim()});
+    const mode = $('server-mode').value;
+    const connection = await api('/api/pair', {mode, host: $('pin').value.trim(), code:$('own-code').value.trim()});
+    connectionMode = connection.mode || mode;
+    $('own-code').value = '';
+    window.mandoLockChanged(connection.lockHelperInstalled || connection.directLock || false);
+    window.mandoZoomChanged(connection.zoomHelperInstalled || false);
 
     setPaired(true);
-    status('Conectado por Wi-Fi al servidor ' + connection.version + '. Los controles ya están disponibles.');
+    status(connection.dryRun ? 'SIMULACIÓN: no se controla ningún ordenador.' : 'Conectado por Wi-Fi a ' + connection.version + (connectionMode === 'own' ? '. Sesión cifrada TLS; pantalla bloqueada aún no compatible.' : '. Los controles ya están disponibles.'));
   } catch (error) {status(error.message, true);}
   finally {$('pair-button').disabled = false;}
 });
@@ -208,7 +223,7 @@ function selectTab(tab) {
   });
   $('pairing').hidden = paired || tab !== 'touch';
   $('touch').hidden = !paired || tab !== 'touch';
-  $('connection-help').textContent = tab === 'ir' ? 'LGTV1 · Infrarrojos' : 'Servidor oficial · Wi-Fi';
+  $('connection-help').textContent = tab === 'ir' ? 'LGTV1 · Infrarrojos' : connectionMode === 'own' ? 'Mando propio · TLS' : 'Servidor oficial · Wi-Fi';
   if (tab === 'keyboard') openAndroidKeyboard();
   else api('/api/keyboard', {visible: false}).catch(() => {});
 }
@@ -392,6 +407,7 @@ function endPointer(event) {
 ['pointerup','pointercancel','lostpointercapture'].forEach(name => pad.addEventListener(name, endPointer));
 document.addEventListener('visibilitychange', () => {pointers.clear(); dx = dy = 0; resetModifiers();});
 api('/api/status').then(result => {
+  connectionMode = result.mode || 'official';
   setPaired(result.paired);
   window.mandoImeChanged(result.imeVisible || false);
   if (result.dryRun) status('SIMULACIÓN: puedes probar la interfaz; no se controla ningún ordenador.');

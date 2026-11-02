@@ -38,7 +38,9 @@ public final class MainActivity extends Activity {
     private WebView web;
     private RemoteKeyboard editor;
     private LinearLayout keyboardRow;
-    private final RemoteClient client = new RemoteClient();
+    private final RemoteClient officialClient = new RemoteClient();
+    private final OwnClient ownClient = new OwnClient();
+    private volatile InputClient client = officialClient;
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<Runnable>(32));
     private volatile boolean destroyed;
@@ -231,15 +233,22 @@ public final class MainActivity extends Activity {
                             infrared.send(data.getString("command"));
                             result.put("ok", true);
                         } else if ("/api/status".equals(path)) {
+                            if(client==ownClient && ownClient.isConnected()) {
+                                try {ownClient.refreshStatus();}catch(Exception ignored){ }
+                            }
+                            result.put("mode",client==ownClient ? "own" : "official");
                             result.put("paired", client.isConnected());
-                            result.put("dryRun", false);
+                            result.put("dryRun", client==ownClient && ownClient.isDryRun());
                             result.put("imeVisible",imeVisible);
                         } else if ("/api/zoom-setup".equals(path)) {
                             runOnUiThread(() -> showZoomSetup());result.put("ok",true);
                         } else if ("/api/lock-setup".equals(path)) {
-                            runOnUiThread(() -> showLockSetup());result.put("ok",true);
+                            if(client==ownClient)runOnUiThread(() -> Toast.makeText(MainActivity.this,"El servidor propio incluye el bloqueo directo.",Toast.LENGTH_LONG).show());
+                            else runOnUiThread(() -> showLockSetup());result.put("ok",true);
                         } else if ("/api/lock".equals(path)) {
-                            if(!getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false)) {
+                            if(client==ownClient) {
+                                client.action(new JSONObject().put("type","lock"));result.put("ok",true);
+                            } else if(!getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false)) {
                                 runOnUiThread(() -> showLockSetup());result.put("needsSetup",true);
                             } else {
                                 client.action(new JSONObject().put("type","key").put("key","L")
@@ -261,27 +270,39 @@ public final class MainActivity extends Activity {
                             }
                             result.put("irTabVisible",getPreferences(MODE_PRIVATE).getBoolean("irTabVisible",infrared.isAvailable()));
                             result.put("sensitivity",getPreferences(MODE_PRIVATE).getFloat("sensitivity",0.65f));
-                            result.put("lockHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false));
-                            result.put("zoomHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
+                            result.put("lockHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false) || client==ownClient);
+                            result.put("zoomHelperInstalled",client==ownClient ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
                         } else if ("/api/keyboard".equals(path)) {
                             final boolean visible=data!=null && data.optBoolean("visible",false);
                             if(visible && !client.isConnected())throw new IOException("Conecta primero con el PC");
                             runOnUiThread(() -> showKeyboard(visible));result.put("ok",true);
                         } else if ("/api/pair".equals(path)) {
                             if (data == null) throw new IOException("Falta la dirección del PC");
-                            client.connect(wifi(), data.getString("host"));
-                            result.put("ok", true);
-                            result.put("version", client.serverVersion());
+                            if(!foreground)throw new IOException("Abre Mando para conectar");
+                            officialClient.close();ownClient.close();
+                            String mode=data.optString("mode","official");
+                            if(!"own".equals(mode) && !"official".equals(mode))throw new IOException("Tipo de servidor inválido");
+                            boolean own="own".equals(mode);
+                            Network network=wifi();
+                            if(own)ownClient.connect(network,data.getString("code"));
+                            else officialClient.connect(network,data.getString("host"));
+                            if(!foreground){officialClient.close();ownClient.close();throw new IOException("Conexión cancelada");}
+                            client=own ? ownClient : officialClient;
+                            result.put("ok", true).put("mode",own ? "own" : "official");
+                            result.put("version", own ? "Mando v1 TLS" : String.valueOf(officialClient.serverVersion()));
+                            result.put("directLock",own).put("dryRun",own && ownClient.isDryRun());
+                            result.put("lockHelperInstalled",own || getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false));
+                            result.put("zoomHelperInstalled",own ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
                         } else if ("/api/scan".equals(path)) {
                             ConnectivityManager manager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
                             Network network=wifi();
-                            result.put("servers",client.scan(network,manager.getLinkProperties(network)));
+                            result.put("servers",officialClient.scan(network,manager.getLinkProperties(network)));
                         } else if ("/api/logout".equals(path)) {
                             client.close(); result.put("ok", true);
                         } else if ("/api/action".equals(path)) {
                             if (data == null) throw new IOException("Falta la acción");
                             if ("zoom".equals(data.optString("type")) &&
-                                    !getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false)) {
+                                    !(client==ownClient ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false))) {
                                 runOnUiThread(() -> showZoomSetup());result.put("needsSetup",true);
                             } else {
                                 if (("zoom".equals(data.optString("type")) || "task_view".equals(data.optString("type"))) &&
@@ -320,13 +341,13 @@ public final class MainActivity extends Activity {
         super.onStop();
         editor.discard();
         showKeyboard(false);
-        client.close(); // No commands remain active when leaving the controller.
+        officialClient.close();ownClient.close(); // No commands remain active when leaving the controller.
         if (web != null) web.evaluateJavascript("window.mandoDisconnected && window.mandoDisconnected()", null);
     }
 
     @Override protected void onDestroy() {
         destroyed = true;
-        client.close(); worker.shutdownNow();
+        officialClient.close();ownClient.close(); worker.shutdownNow();
         if (web != null) { web.removeJavascriptInterface("MandoNative"); web.destroy(); }
         super.onDestroy();
     }

@@ -8,6 +8,7 @@
 !/android/
 !/windows-lock/
 !/windows-zoom/
+!/windows-server/
 !/evidence/
 
 # Local signing material and generated artifacts.
@@ -32,6 +33,10 @@ evidence/*
 android/VALIDATION*.md
 !android/VALIDATION-0.4.1.md
 !android/VALIDATION-0.4.2-rc.2.md
+!android/VALIDATION-0.5.0-alpha.1.md
 android/tests/KeyboardProbe.java
 
 node_modules/
+
+windows-server/.venv/
+windows-server/*.zip

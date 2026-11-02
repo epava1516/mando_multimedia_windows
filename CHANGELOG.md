@@ -1,5 +1,13 @@
 # Historial
 
+## 0.5.0-alpha.1 — servidor propio experimental
+
+- Servidor independiente para Windows: TLS, código de emparejamiento, contrato JSON v1 y ACK por acción.
+- Cliente Android con pinning de certificado y selector propio/oficial.
+- Entrada Unicode, ratón, multimedia/volumen, Vista de tareas y bloqueo directo; reutiliza el complemento propio de zoom.
+- Límites de mensajes, sesiones, intentos y secuencias para rechazar acciones repetidas.
+- Sin soporte de escritorio seguro todavía. Validación física en Windows pendiente; estable continúa en 0.4.1.
+
 ## 0.4.2-rc.2 — candidata
 
 - Pellizco para zoom visual de Firefox alrededor del cursor con el complemento local opcional MandoTouchZoom. Se configura desde Ajustes, después de instalar y probar el complemento en Windows.

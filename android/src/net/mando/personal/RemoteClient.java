@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-final class RemoteClient {
+final class RemoteClient implements InputClient {
     static final int PORT = 1978;
     private volatile Socket socket;
     private volatile DatagramSocket commandSocket;
@@ -45,10 +45,10 @@ final class RemoteClient {
         for(char c='0';c<='9';c++) KEYS.put(String.valueOf(c),String.valueOf(c));
     }
 
-    boolean isConnected() { Socket s=socket; return ready && s!=null && !s.isClosed(); }
+    public boolean isConnected() { Socket s=socket; return ready && s!=null && !s.isClosed(); }
     int serverVersion() { return version; }
 
-    void close() {
+    public void close() {
         ready=false;
         DatagramSocket previousCommand=commandSocket;commandSocket=null;
         if(previousCommand!=null)previousCommand.close();
@@ -142,7 +142,7 @@ final class RemoteClient {
         return (int)n;
     }
 
-    void action(JSONObject data) throws Exception {
+    public void action(JSONObject data) throws Exception {
         String type=data.getString("type");
         if("move".equals(type)) {
             sendCommand(Protocol.move(number(data,"dx",-500,500),number(data,"dy",-500,500)));

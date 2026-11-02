@@ -21,11 +21,12 @@ const server = http.createServer((request, response) => {
     const page = await browser.newPage({viewport:{width:390,height:800},hasTouch:true});
     const errors=[]; page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
-      window.actions=[];
+      window.actions=[];window.pairRequests=[];
       window.MandoNative={request(id, raw) {
         const {path, data}=JSON.parse(raw);
         if (path==='/api/action') window.actions.push(data);
-        const result = path==='/api/status' ? {paired:true} : path==='/api/settings' ?
+        if (path==='/api/pair') window.pairRequests.push(data);
+        const result = path==='/api/pair' ? {mode:data.mode,version:'Mando v1 TLS',directLock:true,zoomHelperInstalled:true} : path==='/api/status' ? {paired:true} : path==='/api/settings' ?
           {sensitivity:.65,irTabVisible:true,zoomHelperInstalled:true} : path==='/api/ir/status' ? {available:true} : {ok:true};
         setTimeout(()=>window.nativeReply(id,result),0);
       }};
@@ -96,8 +97,21 @@ const server = http.createServer((request, response) => {
     await send('touchMove',[point(1,cx-80,cy),point(2,cx+80,cy)]);
     await finish();
     assert.deepEqual(await actions(),[],'unconfigured zoom must not send keyboard zoom fallback');
+    await page.locator('[data-tab=settings]').click();
+    await page.locator('#disconnect').click();
+    await page.locator('[data-tab=touch]').click();
+    await page.locator('#server-mode').selectOption('own');
+    assert(await page.locator('#scan').isHidden(),'own mode must not scan the official protocol');
+    assert(await page.locator('#pin').isDisabled(),'hidden official host must not block own pairing');
+    const code='mando1:192.168.1.10:1979:'+('a'.repeat(64))+':12345678';
+    await page.locator('#own-code').fill(code);
+    await page.locator('#pair-button').click();
+    await page.locator('#touchpad').waitFor({state:'visible'});
+    assert.equal(await page.locator('#own-code').inputValue(),'','pairing secret must clear after connecting');
+    const pair=await page.evaluate(()=>window.pairRequests.at(-1));
+    assert.equal(pair.mode,'own');assert.equal(pair.code,code);
     assert.deepEqual(errors,[]);
-    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement, tap, Task View and zoom setup guard: passed');
+    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement, tap, Task View, zoom setup guard and own-server pairing UI: passed');
   } finally {
     if(browser)await browser.close();
     await new Promise(resolve=>server.close(resolve));

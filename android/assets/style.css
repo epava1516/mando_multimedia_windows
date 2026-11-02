@@ -37,3 +37,5 @@
 
 .settings-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0;border-top:1px solid var(--line);padding-top:10px}.settings-tools button{font-size:12px;min-height:44px}
 @media(max-height:500px){.settings-tools{padding-top:6px}}
+
+.server-mode-label{display:flex!important;align-items:center;gap:10px;font-size:12px;flex-shrink:0}.server-mode-label select{flex:1;min-width:0;min-height:40px;font-size:13px;padding:6px}.pair-row #own-code{font-size:12px}.pairing{gap:8px}@media(max-height:650px){.pairing{gap:6px}.pairing h1{font-size:19px}.server-mode-label select{min-height:36px}}

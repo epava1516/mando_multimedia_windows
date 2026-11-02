@@ -1,4 +1,4 @@
-# Mando Android · candidata 0.4.2-rc.2
+# Mando Android · experimental 0.5.0-alpha.1
 
 APK propio, paquete `net.mando.personal`, nombre **Mando**. No sustituye ni modifica Remote Mouse. Requiere Android 9 o posterior y el servidor oficial de Windows 5.30 o posterior con TCP y UDP 1978 accesibles.
 
@@ -65,3 +65,9 @@ Separa dos dedos sobre el touchpad para ampliar visualmente una zona de Firefox 
 La APK envía Ctrl+Alt+F12/F11 completos al servidor oficial; los accesos directos de Windows lanzan un gesto táctil de dos contactos. El complemento actúa solo con Firefox en primer plano y el cursor en su área cliente; su recepción por Firefox necesita prueba física. No añade un servidor de red.
 
 El movimiento paralelo de dos dedos conserva el scroll. El gesto se clasifica tras un umbral y no mezcla zoom con scroll hasta levantar los dedos. Tres dedos hacia arriba abren una vez la Vista de tareas mediante Win+Tab para seleccionar ventanas o escritorios virtuales. La sensibilidad del cursor no altera los umbrales de gestos.
+
+## Servidor propio (0.5.0-alpha.1)
+
+En la pantalla de conexión puedes elegir **Mando propio (experimental)** y pegar el código completo `mando1:...` que muestra [nuestro servidor de Windows](../windows-server/README.md). La app valida por huella SHA-256 el certificado TLS antes de enviar el PIN, exige TLS>=1.2 y no repite acciones automáticamente. El PIN no se guarda y se borra del formulario al conectar o salir.
+
+El servidor propio incluye bloqueo directo sin MandoLock. Reutiliza MandoTouchZoom para el zoom visual. Todavía no controla la pantalla bloqueada/UAC, no almacena dispositivos emparejados y no tiene descubrimiento propio: usa el código de la consola. La opción oficial conserva su protocolo y búsqueda Wi-Fi anteriores. La selección propia sigue siendo experimental y necesita prueba en Windows.

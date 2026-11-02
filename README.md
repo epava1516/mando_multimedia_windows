@@ -4,6 +4,12 @@
 
 La rama de gestos prepara **0.4.2-rc.2**: zoom visual de Firefox mediante el complemento opcional [MandoTouchZoom](windows-zoom/README.md), más tres dedos hacia arriba para abrir la Vista de tareas. El pellizco se distingue del scroll. Pendiente de confirmación física; `v0.4.1` sigue siendo la release estable.
 
+## Servidor propio en preparación
+
+**0.5.0-alpha.1** incorpora una segunda opción de servidor, independiente de Remote Mouse. Código, contrato TLS y pruebas en [windows-server/](windows-server/README.md). El selector de la APK conserva la opción oficial; la alfa no se considera estable.
+
+La primera base admite los controles de la sesión normal de Windows, bloqueo directo y el complemento propio de zoom visual. El escritorio bloqueado/UAC, descubrimiento propio y emparejamiento persistente siguen pendientes. Los tests de red usan TLS real con entrada simulada; falta validación física en Windows. Para probarla, usa la APK alfa y el paquete del servidor propio juntos.
+
 ## Funciones
 
 - Control: touchpad, clic izquierdo/derecho, scroll con dos dedos y teclado Android accesible desde el botón central.

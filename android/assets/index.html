@@ -15,8 +15,8 @@
     <nav class="tabs" aria-label="Controles"><button class="tab active" data-tab="touch" aria-pressed="true">Control</button><button class="tab" data-tab="keyboard" aria-pressed="false">Teclado</button><button class="tab" data-tab="ir" aria-pressed="false" hidden>IR</button><button class="tab" data-tab="settings" aria-pressed="false">Ajustes</button></nav>
   <section id="pairing" class="panel card pairing">
     <h1>Conectar al PC</h1>
-    <p class="pairing-note">Servidor oficial de Remote Mouse · Wi-Fi</p>
-    <form id="pair-form"><label for="pin">IP del ordenador</label><div class="pair-row"><input id="pin" name="pin" type="text" inputmode="decimal" maxlength="15" autocomplete="off" required value="192.168.1.105"><button class="primary" id="pair-button">Conectar</button></div></form>
+    <label class="server-mode-label" for="server-mode">Servidor<select id="server-mode"><option value="official">Remote Mouse (oficial)</option><option value="own">Mando propio (experimental)</option></select></label>
+    <form id="pair-form"><label for="pin" id="pair-label">IP del ordenador</label><div class="pair-row"><input id="pin" name="pin" type="text" inputmode="decimal" maxlength="15" autocomplete="off" required value="192.168.1.105"><input id="own-code" type="password" autocomplete="off" maxlength="140" placeholder="Código mando1 del PC" aria-label="Código de emparejamiento del servidor propio" disabled hidden><button class="primary" id="pair-button">Conectar</button></div></form>
     <button type="button" id="scan" class="full">Buscar en Wi-Fi</button>
     <div id="servers" class="servers" aria-live="polite"></div>
     <div id="server-pages" class="server-pages" hidden><button id="server-prev" aria-label="Servidores anteriores">←</button><span id="server-page-label"></span><button id="server-next" aria-label="Más servidores">→</button></div>
