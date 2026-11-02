@@ -29,6 +29,15 @@ final class Protocol {
         return frame("key","[kld]"+token+"[*]");
     }
 
+    static byte[] zoom(boolean enlarge) {
+        // One complete Ctrl+key combination; no modifier is held across UDP packets.
+        return frame("key", "[kld]" + (enlarge ? "f12" : "f11") + "[*]ctrl[*]alt");
+    }
+
+    static byte[] taskView() {
+        return frame("key", "[kld]tab[*]cmd");
+    }
+
     static byte[] move(int dx, int dy) {
         return frame("mos", String.format(Locale.US, "m %.4f %.4f", (double)dx, (double)dy));
     }

@@ -1,5 +1,16 @@
 # Historial
 
+## 0.4.2-rc.2 — candidata
+
+- Pellizco para zoom visual de Firefox alrededor del cursor con el complemento local opcional MandoTouchZoom. Se configura desde Ajustes, después de instalar y probar el complemento en Windows.
+- Tres dedos hacia arriba abren la Vista de tareas (ventanas y escritorios) mediante Win+Tab, una vez por gesto.
+- Distingue gestos de scroll y filtra movimientos pequeños, cancelaciones y solicitudes caducadas.
+- La prueba física de los nuevos gestos sigue pendiente. La release estable continúa en 0.4.1.
+
+## 0.4.2-rc.1 — sustituida
+
+El usuario comprobó que el pellizco enviaba Ctrl+más/menos y cambiaba la distribución de la página. No correspondía al zoom visual solicitado; se ha retirado ese envío.
+
 ## 0.4.1 — estable
 
 Primera publicación estable, confirmada por el usuario.

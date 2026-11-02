@@ -21,6 +21,9 @@ public final class ProtocolTest {
         expect(Protocol.navigationKey("space"),"key 13[kld]space[*]");
         expect(Protocol.navigationKey("rt"),"key 10[kld]rt[*]");
         expect(Protocol.frame("key","[kld]l[*]ctrl[*]alt"),"key 19[kld]l[*]ctrl[*]alt");
+        expect(Protocol.zoom(true),"key 21[kld]f12[*]ctrl[*]alt");
+        expect(Protocol.zoom(false),"key 21[kld]f11[*]ctrl[*]alt");
+        expect(Protocol.taskView(),"key 14[kld]tab[*]cmd");
         expect(Protocol.move(1,2),"mos 15m 1.0000 2.0000");
         expect(Protocol.move(-1,-2),"mos 17m -1.0000 -2.0000");
         try {Protocol.text(new String(new char[995]).replace('\0','a'));throw new AssertionError("Aceptó longitud excesiva");}
@@ -29,6 +32,6 @@ public final class ProtocolTest {
         catch(IllegalArgumentException expected) { }
         try {Protocol.navigationKey("arbitrary");throw new AssertionError("Aceptó tecla arbitraria");}
         catch(IllegalArgumentException expected) { }
-        System.out.println("18 comprobaciones de protocolo correctas");
+        System.out.println("21 comprobaciones de protocolo correctas");
     }
 }

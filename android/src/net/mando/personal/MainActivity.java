@@ -45,6 +45,7 @@ public final class MainActivity extends Activity {
     private volatile boolean foreground;
     private InfraredController infrared;
     private volatile boolean imeVisible;
+    private boolean zoomSetupShowing;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -176,6 +177,23 @@ public final class MainActivity extends Activity {
             }).setNegativeButton("Cancelar",null).show();
     }
 
+    private void showZoomSetup() {
+        if(destroyed || isFinishing() || zoomSetupShowing)return;
+        zoomSetupShowing = true;
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Zoom visual de Firefox")
+            .setMessage("Instala MandoTouchZoom una vez en Windows. Comprueba Ctrl+Alt+F12 para ampliar y Ctrl+Alt+F11 para reducir con Firefox activo y el cursor sobre la página. Después confirma aquí. El pellizco enviará esos gestos táctiles alrededor del cursor.")
+            .setPositiveButton("Ya está instalado",(prompt,which) -> {
+                getPreferences(MODE_PRIVATE).edit().putBoolean("zoomHelperInstalled",true).apply();
+                web.evaluateJavascript("window.mandoZoomChanged && window.mandoZoomChanged(true)",null);
+            })
+            .setNeutralButton("Desactivar",(prompt,which) -> {
+                getPreferences(MODE_PRIVATE).edit().putBoolean("zoomHelperInstalled",false).apply();
+                web.evaluateJavascript("window.mandoZoomChanged && window.mandoZoomChanged(false)",null);
+            }).setNegativeButton("Cancelar",null).create();
+        dialog.setOnDismissListener(prompt -> zoomSetupShowing = false);
+        dialog.show();
+    }
+
     private Network wifi() throws IOException {
         ConnectivityManager manager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         for (Network network : manager.getAllNetworks()) {
@@ -216,6 +234,8 @@ public final class MainActivity extends Activity {
                             result.put("paired", client.isConnected());
                             result.put("dryRun", false);
                             result.put("imeVisible",imeVisible);
+                        } else if ("/api/zoom-setup".equals(path)) {
+                            runOnUiThread(() -> showZoomSetup());result.put("ok",true);
                         } else if ("/api/lock-setup".equals(path)) {
                             runOnUiThread(() -> showLockSetup());result.put("ok",true);
                         } else if ("/api/lock".equals(path)) {
@@ -242,6 +262,7 @@ public final class MainActivity extends Activity {
                             result.put("irTabVisible",getPreferences(MODE_PRIVATE).getBoolean("irTabVisible",infrared.isAvailable()));
                             result.put("sensitivity",getPreferences(MODE_PRIVATE).getFloat("sensitivity",0.65f));
                             result.put("lockHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false));
+                            result.put("zoomHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
                         } else if ("/api/keyboard".equals(path)) {
                             final boolean visible=data!=null && data.optBoolean("visible",false);
                             if(visible && !client.isConnected())throw new IOException("Conecta primero con el PC");
@@ -259,7 +280,15 @@ public final class MainActivity extends Activity {
                             client.close(); result.put("ok", true);
                         } else if ("/api/action".equals(path)) {
                             if (data == null) throw new IOException("Falta la acción");
-                            client.action(data); result.put("ok", true);
+                            if ("zoom".equals(data.optString("type")) &&
+                                    !getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false)) {
+                                runOnUiThread(() -> showZoomSetup());result.put("needsSetup",true);
+                            } else {
+                                if (("zoom".equals(data.optString("type")) || "task_view".equals(data.optString("type"))) &&
+                                        (!foreground || android.os.SystemClock.elapsedRealtime()-requestedAt>750))
+                                    result.put("expired",true);
+                                else {client.action(data); result.put("ok", true);}
+                            }
                         } else throw new IOException("Acción no permitida");
                     } catch (Exception e) {
                         try { result.put("error", safeMessage(e)); } catch (Exception ignored) { }
