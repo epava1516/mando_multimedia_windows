@@ -52,6 +52,8 @@ class WindowsInput:
         self.api = C.WinDLL('user32', use_last_error=True)
         self.api.SendInput.argtypes = [C.c_uint32, C.POINTER(Input), C.c_int]
         self.api.SendInput.restype = C.c_uint32
+        from desktop_bridge import DesktopBridge
+        self.desktop_bridge = DesktopBridge()
 
     def send(self, events):
         array = (Input * len(events))(*events)
@@ -78,7 +80,12 @@ class WindowsInput:
         finally:
             self.api.CloseDesktop(desktop)
 
+    def secure_desktop_available(self):
+        return self.desktop_bridge.available()
+
     def zoom_path(self):
+        integrated = Path(os.environ['ProgramFiles']) / 'MandoDesktop' / 'MandoTouchZoom.exe'
+        if integrated.is_file(): return integrated
         return Path(os.environ['LOCALAPPDATA']) / 'MandoTouchZoom' / 'MandoTouchZoom.exe'
 
     def zoom_available(self):
@@ -87,7 +94,10 @@ class WindowsInput:
     def execute(self, action):
         kind = action['type']
         if kind != 'lock' and not self.default_desktop():
-            raise RuntimeError('El escritorio seguro aun no esta implementado')
+            if kind not in ('move','click','scroll','key','text'):
+                raise RuntimeError('Ese gesto requiere el escritorio normal')
+            self.desktop_bridge.execute(action)
+            return
         if kind == 'lock':
             self.api.LockWorkStation.argtypes = []
             self.api.LockWorkStation.restype = C.c_int
@@ -127,6 +137,9 @@ class DryRunInput:
     """Validate and acknowledge commands without issuing host input."""
     def zoom_available(self):
         return True
+
+    def secure_desktop_available(self):
+        return False
 
     def execute(self, action):
         pass

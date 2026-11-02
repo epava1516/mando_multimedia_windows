@@ -40,7 +40,7 @@ def validate_action(data):
         return {'type': kind, 'key': key, 'modifiers': mods}
     if kind == 'text':
         text = data.get('text')
-        if not isinstance(text, str) or not 1 <= len(text) <= 500:
+        if not isinstance(text, str) or not 1 <= len(text) <= 500 or '\x00' in text:
             raise ValueError('Texto fuera de rango')
         text.encode('utf-16-le')
         return {'type': kind, 'text': text}
@@ -132,7 +132,7 @@ class State:
 
     def capabilities(self):
         return {'input': True, 'lock': True, 'task_view': True,
-                'zoom': self.adapter.zoom_available(), 'secure_desktop': False, 'dry_run':isinstance(self.adapter,DryRunInput)}
+                'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput)}
 
 
 class Handler(socketserver.BaseRequestHandler):

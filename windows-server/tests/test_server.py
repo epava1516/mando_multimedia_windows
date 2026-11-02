@@ -62,12 +62,15 @@ class ProtocolTests(unittest.TestCase):
                 with self.assertRaises(ValueError):server.receive(b)
             finally:a.close();b.close()
 
-    def test_secure_desktop_input_is_rejected(self):
+    def test_secure_desktop_input_is_forwarded_to_restricted_broker(self):
         adapter=WindowsInput.__new__(WindowsInput)
         adapter.default_desktop=lambda:False
-        adapter.send=Mock()
-        with self.assertRaises(RuntimeError):adapter.execute({'type':'move','dx':1,'dy':1})
+        adapter.send=Mock();adapter.desktop_bridge=Mock()
+        action={'type':'move','dx':1,'dy':1}
+        adapter.execute(action)
+        adapter.desktop_bridge.execute.assert_called_once_with(action)
         adapter.send.assert_not_called()
+        with self.assertRaises(RuntimeError):adapter.execute({'type':'task_view'})
 
     def test_lock_uses_api_not_keyboard_shortcut(self):
         adapter=WindowsInput.__new__(WindowsInput)
