@@ -1,0 +1,30 @@
+# Only the stable Android app and its Windows helper belong to this repository.
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/CHANGELOG.md
+!/SECURITY.md
+!/android/
+!/windows-lock/
+!/evidence/
+
+# Local signing material and generated artifacts.
+.state/
+**/__pycache__/
+*.pyc
+android/build/
+android/*.apk
+android/*.idsig
+windows-lock/*.zip
+
+# Historical investigation dumps stay local.
+evidence/*
+!evidence/README.md
+!evidence/LEAN_IR.md
+!evidence/lgtv1-exact-codes.json
+
+# Historical validation notes and device-only probes.
+android/VALIDATION*.md
+!android/VALIDATION-0.4.1.md
+android/tests/KeyboardProbe.java
