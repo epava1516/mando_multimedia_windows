@@ -14,8 +14,10 @@ MandoLock instala un ejecutable por usuario que llama a LockWorkStation y un acc
 
 ## Servidor propio experimental
 
-TLS>=1.2 y verificación del certificado por SHA-256 de la identidad mostrada en el código del propio PC. No hay trust-all ni degradación automática al servidor oficial. PIN de ocho dígitos válido diez minutos, diez intentos/minuto globales, máximo cuatro sesiones, frames de hasta8192bytes y secuencias estrictas. No hay reintentos de entrada.
+TLS>=1.2 y pinning SHA-256 de la identidad mostrada por el PC, sin trust-all ni degradación automática. PIN temporal y límites de intentos/sesiones/frames; secuencias estrictas y ninguna repetición de input tras un error.
 
-La clave privada TLS vive en `windows-server/.state/`, fuera de Git y distribuciones. No se guardan PIN, texto ni credenciales de emparejamiento. El cliente solo acepta IP privadas. La lista de acciones es cerrada y el único subproceso admitido es MandoTouchZoom en su ruta fija, con argumentos fijos in/out.
+Las autorizaciones son secretos aleatorios de 256 bits: Windows almacena hashes y Android cifra el perfil con AES-256-GCM y una clave no exportable de Android Keystore. No son contraseñas de Windows. REVOKE elimina dispositivos y rota el PIN de forma atómica; cada petición comprueba que su dispositivo sigue autorizado. El cliente valida de nuevo el certificado al reconectar.
 
-El primer adaptador funciona como usuario normal; comprueba el escritorio de entrada y rechaza controles cuando no es Default. La capacidad secure_desktop es false. No se inicia como administrador para intentar cruzar esa frontera. El servicio/broker necesario para Winlogon requiere un diseño y revisión propios.
+El servidor de red no se eleva. El broker SYSTEM está en Program Files con ACL protegida, no escucha en red y solo acepta el SID autorizado de la consola activa. Su pipe rechaza acceso remoto y su PID se verifica contra SCM. El trabajador usa exclusivamente la sesión/Winlogon que decide el servicio, con canal privado SYSTEM, y valida bloqueo/escritorio antes de inyectar. Solo hay acciones de entrada permitidas; no rutas ni ejecución arbitraria de órdenes. El zoom ejecuta una ruta fija como usuario normal.
+
+La instalación privilegiada se hace de forma explícita con Instalar-MandoCompleto.ps1. UAC, otras sesiones, RDP y primer login quedan fuera de esta fase. Compilación e instalación IPC pasan en CI; entrada física Winlogon sigue pendiente. La identidad TLS y los hashes viven en LocalAppData/MandoServer y no se distribuyen.

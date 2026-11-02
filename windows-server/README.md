@@ -1,30 +1,63 @@
-# Servidor propio de Mando — experimental v1
+# Servidor propio completo — experimental 0.5.0-alpha.2
 
-Servidor independiente para Windows 11. No utiliza ni requiere Remote Mouse. La APK 0.5.0-alpha.1 incorpora un selector para usarlo; las APK estables anteriores siguen utilizando su servidor oficial.
+Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
 
-## Funciones preparadas
+**Estado:** compilación e instalación/desinstalación del servicio, identidad del pipe y pruebas del protocolo pasan en un runner Windows. La entrada real con la pantalla bloqueada y el zoom visual necesitan confirmación en el PC. No es todavía una versión estable.
 
-Ratón, clics, scroll, texto Unicode, teclado, multimedia y volumen mediante SendInput; Vista de tareas mediante Win+Tab y bloqueo directo mediante LockWorkStation. El zoom visual usa el complemento propio opcional MandoTouchZoom ya incluido en el repositorio. IR sigue ejecutándose en el móvil.
+## Instalar el paquete completo
 
-**Estado:** protocolo y transporte probados con TLS real en Linux y un adaptador sin entrada. APK compilada y firmada. El servidor no se ha ejecutado en Windows desde este entorno: entrada real, bloqueo y zoom necesitan prueba en el PC.
-
-## Iniciar en Windows
-
-1. Instala Python 3.11 con el lanzador `py` y extrae esta carpeta en una ubicación de tu usuario.
-2. Abre Windows PowerShell en la carpeta, revisa los archivos y ejecuta:
+1. Extrae todo el ZIP en una carpeta de tu usuario. No hace falta instalar Python si el paquete incluye `MandoServer.exe`.
+2. Abre **Windows PowerShell 5.1 como administrador**, en esa carpeta, y ejecuta:
 
 ```powershell
 Get-ChildItem *.ps1 | Unblock-File
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\Iniciar-MandoServidor.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\Instalar-MandoCompleto.ps1
 ```
 
-El script crea un entorno virtual local e instala la dependencia fijada `cryptography==50.0.2`; requiere Internet para esa primera instalación. No cambia la política permanente de PowerShell.
+La elevación se usa una vez para instalar el servicio y los ejecutables protegidos en Program Files. No abre puertos ni cambia la política permanente de PowerShell. Autoriza la cuenta que ejecuta el instalador; si para elevar utilizas **otra cuenta administrativa**, obtén antes el SID con `whoami /user` en tu cuenta normal y pasa `-UserSid S-1-5-21-...` al instalador. Solo esa cuenta, en la consola activa, podrá usar el broker.
 
-3. Introduce la IP Wi-Fi del PC (`ipconfig`). El servidor escucha exclusivamente en esa IPv4 privada, TCP **1979**, y muestra un código `mando1:...`. Si Windows solicita permiso de firewall, permite únicamente la red privada que vayas a usar. No crea reglas ni abre puertos del router.
-4. En la APK alfa, elige **Mando propio (experimental)** y pega el código completo que muestra ese PC. Incluye IP, puerto, huella SHA-256 del certificado y PIN. Solo se envía el PIN después de verificar el certificado por TLS. El código no se guarda en la app ni se imprime en registros de red.
-5. Las sesiones duran hasta ocho horas y terminan al salir de Mando o cerrar el servidor. El código admite hasta cuatro sesiones simultáneas y caduca en diez minutos. Para reconectar con un código nuevo, escribe **R** y Enter en la consola; conserva las sesiones activas. No hay reconexión ni repetición automática de acciones.
+3. Cierra la consola elevada. Desde tu cuenta **normal**, abre `MandoServer.exe`, o ejecuta `Iniciar-MandoServidor.ps1`. Introduce la IP Wi-Fi del PC (`ipconfig`). Escucha exclusivamente en esa IPv4 privada, TCP1979. Si Windows solicita permiso de firewall, permite la red privada que uses. No hay que instalar MandoLock ni el zoom por separado.
+4. Instala la APK **0.5.0-alpha.2**. En Mando selecciona **Mando propio (experimental)** y pega una vez el código `mando1:...` que muestra el PC. El código contiene dirección, puerto, huella del certificado y PIN temporal; no lo compartas fuera de tus dispositivos.
+5. Después del primer emparejamiento puedes salir y volver a abrir Mando: selecciona el servidor propio y conecta dejando vacío el campo de código. La autorización queda cifrada con Android Keystore. La sesión se cierra al salir; no se reconecta ni repite acciones automáticamente.
 
-Comando manual, desde esta carpeta:
+El servicio local arranca con Windows, pero el servidor de red se ejecuta en la sesión del usuario y debe estar abierto antes de bloquear. No se ha implementado acceso antes del primer inicio de sesión o tras cerrar sesión, ni control del escritorio UAC, sesiones RDP o de otra cuenta.
+
+## Controles incluidos
+
+- Ratón, clics, scroll, Unicode, teclas extendidas, multimedia y volumen de Windows.
+- Dos dedos paralelos: scroll. Pellizco: zoom visual alrededor del cursor en Firefox con nuestro componente integrado. Tres dedos arriba: Vista de tareas.
+- Bloqueo directo mediante LockWorkStation. Cuando la sesión está bloqueada, el broker restringido atiende ratón, clics, scroll, texto y teclas en Winlogon; no ejecuta gestos de ventanas/zoom allí.
+- IR sigue funcionando localmente en el móvil y puede ocultarse desde Ajustes.
+
+Para zoom, coloca primero el cursor sobre contenido de Firefox, lejos de barras y bordes. Los gestos nativos todavía necesitan prueba física. Windows puede promover entrada táctil a ratón: comprueba el punto de zoom entre gestos.
+
+## Emparejamiento y revocación
+
+Hasta cuatro dispositivos registrados y cuatro sesiones simultáneas. PIN de diez minutos y diez intentos/minuto; una autorización guardada permite reconectar aunque el PIN haya caducado. Cada sesión dura hasta ocho horas, con heartbeat y secuencias nuevas por conexión.
+
+En la consola del servidor:
+
+- `R`: nuevo código para emparejar, sin revocar dispositivos existentes.
+- `REVOKE`: revoca todos los dispositivos y rota el PIN de forma atómica; las sesiones dejan de aceptar acciones en su siguiente petición.
+- `STOP` o Ctrl+C: cierra el servidor de red.
+
+Ajustes → **Olvidar PC propio** borra la autorización de ese móvil; `REVOKE` es la revocación efectiva del servidor. El PC guarda solo hashes de secretos aleatorios, no los tokens en claro. No se guardan contraseñas de Windows ni textos enviados.
+
+## Componentes y límites de confianza
+
+`MandoServer.exe` corre sin privilegios: TLS>=1.2, comprobación por huella exacta del código local, lista cerrada de acciones, longitudes y secuencias estrictas. El broker SYSTEM **no escucha en red**. Su pipe local rechaza clientes remotos, valida SID y sesión y el cliente verifica el PID contra el servicio registrado. Solo los binarios de Program Files pueden ejecutarse con privilegios; el broker no ejecuta código, rutas ni órdenes recibidas por red.
+
+La ruta Winlogon utiliza un trabajador acotado en la sesión autorizada. Solo se inicia con la sesión bloqueada; comprueba de nuevo sesión, bloqueo y escritorio antes de cada SendInput. Los contactos del zoom se liberan/cancelan y las teclas se pulsan y sueltan juntas.
+
+La identidad TLS y el registro de dispositivos viven en `%LOCALAPPDATA%\MandoServer`, fuera del directorio del ejecutable. No compartas esa carpeta. El certificado dura un año y su renovación sigue pendiente de automatizar. Android guarda la autorización con AES-256-GCM y una clave no exportable de Android Keystore. No hay vault de contraseñas.
+
+## Desinstalar
+
+Desde Windows PowerShell como administrador ejecuta `Desinstalar-MandoCompleto.ps1`. Verifica los binarios y quita el servicio y sus archivos reconocidos; conserva archivos ajenos. No borra la identidad TLS ni las autorizaciones del servidor de red. Cierra MandoServer.exe aparte; para revocar sus dispositivos usa REVOKE antes de cerrarlo.
+
+## Desarrollo y pruebas
+
+Si trabajas desde el repositorio sin el ejecutable, instala Python3.11; `Iniciar-MandoServidor.ps1` crea su entorno local y descarga `cryptography==50.0.2` la primera vez. El código se puede ejecutar así:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -32,21 +65,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe server.py --host 192.168.1.105
 ```
 
-La dirección es un ejemplo: usa la de tu propio PC. El servidor oficial puede seguir abierto porque utiliza otro puerto. El selector de búsqueda Wi-Fi corresponde todavía al servidor oficial; el propio se localiza mediante el código del PC.
-
-## Alcance de escritorio
-
-Esta primera versión se ejecuta dentro de la sesión normal del usuario. Puede bloquear Windows, pero **todavía no controla la pantalla bloqueada ni el escritorio UAC**. No lo ejecutes como administrador para intentar resolverlo. La opción del servidor oficial se conserva para ese uso mientras se desarrolla un componente específico de escritorio seguro.
-
-Para zoom instala [MandoTouchZoom](../windows-zoom/README.md); en el paquete distribuido también se incluye dentro de `windows-zoom/`. Solo se ejecuta su ruta fija `%LOCALAPPDATA%\MandoTouchZoom\MandoTouchZoom.exe` con `in` u `out`; no existe ejecución arbitraria de rutas o comandos recibidos por red. La capacidad de zoom se anuncia si el archivo está disponible; su comportamiento real en Firefox sigue pendiente de prueba.
-
-## Datos y seguridad
-
-TLS 1.2 o posterior, certificado verificado por huella exacta del código que muestra tu PC y emparejamiento limitado. El protocolo JSON v1 tiene longitudes máximas, secuencias estrictamente crecientes, límites de intentos/acciones/conexiones y una lista cerrada de acciones. El ACK confirma que Windows aceptó la llamada; no garantiza la reacción de la aplicación con foco.
-
-La identidad privada está en `.state/` y no se incluye en Git ni en los ZIP. No compartas esa carpeta. El certificado dura un año; su renovación queda pendiente de automatizar. No se almacenan textos, códigos ni credenciales de dispositivos; el código se borra del formulario después de conectar y al abandonar la app. No incluye vault ni gestión persistente de dispositivos emparejados.
-
-## Pruebas sin controlar un equipo
+La IP es un ejemplo. El modo real exige instalar los componentes completos. Para probar protocolo sin entradas, ni bloqueo real:
 
 ```bash
 python3 -m venv .venv
@@ -55,13 +74,6 @@ python3 -m venv .venv
 .venv/bin/python server.py --host 127.0.0.1 --dry-run
 ```
 
-El modo `--dry-run` no produce entradas ni bloquea el ordenador y lo anuncia como capacidad al cliente. La APK acepta únicamente IP privadas, por lo que para probarla con un servidor en simulación usa su IP LAN en vez de loopback.
+En Linux la identidad de pruebas queda en `.state/`; en Windows usa LocalAppData. La capacidad dry_run impide cualquier entrada y lo indica al cliente. La APK admite solo IP privadas; para conectar la app a una simulación usa la IP LAN del host.
 
-## Trabajo pendiente antes de sustituir el oficial
-
-- Validación completa en Windows, instalador empaquetado y ejecutable sin Python externo.
-- Servicio/broker por sesión y trabajador restringido para el escritorio seguro, con permisos y canal local revisados. No basta con iniciar este servidor con privilegios altos.
-- Emparejamiento persistente con revocación y secretos protegidos por Android Keystore/DPAPI.
-- Descubrimiento de servidores propios y renovación del certificado.
-
-Contrato versionado en [PROTOCOL.md](PROTOCOL.md).
+El workflow Windows compila ambos componentes, prueba el instalador y la identidad IPC sin enviar input, construye MandoServer.exe y prueba su TLS en modo simulado. [Contrato](PROTOCOL.md). Antes de sustituir el oficial faltan las pruebas físicas de la [matriz](TEST-MATRIX.md), descubrimiento propio, renovación de certificado y experiencia de inicio automático del proceso de red.

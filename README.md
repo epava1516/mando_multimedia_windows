@@ -4,11 +4,11 @@
 
 La rama de gestos prepara **0.4.2-rc.2**: zoom visual de Firefox mediante el complemento opcional [MandoTouchZoom](windows-zoom/README.md), más tres dedos hacia arriba para abrir la Vista de tareas. El pellizco se distingue del scroll. Pendiente de confirmación física; `v0.4.1` sigue siendo la release estable.
 
-## Servidor propio en preparación
+## Servidor propio integrado (experimental)
 
-**0.5.0-alpha.1** incorpora una segunda opción de servidor, independiente de Remote Mouse. Código, contrato TLS y pruebas en [windows-server/](windows-server/README.md). El selector de la APK conserva la opción oficial; la alfa no se considera estable.
+**0.5.0-alpha.2** reúne servidor Windows independiente, gestos, bloqueo directo y broker local para la sesión bloqueada. El paquete incluye `MandoServer.exe`, por lo que no necesita Python instalado. [Instalación completa](windows-server/README.md).
 
-La primera base admite los controles de la sesión normal de Windows, bloqueo directo y el complemento propio de zoom visual. El escritorio bloqueado/UAC, descubrimiento propio y emparejamiento persistente siguen pendientes. Los tests de red usan TLS real con entrada simulada; falta validación física en Windows. Para probarla, usa la APK alfa y el paquete del servidor propio juntos.
+La autorización del móvil se recuerda con Android Keystore y se puede revocar desde Windows. El servicio local se instala una vez con permisos de administrador; el servidor de red corre como usuario normal. Compilación, instalación e identidad IPC pasan en un runner Windows, además de tests de TLS y dispositivos. Falta confirmar físicamente la entrada en Winlogon y los gestos en el PC. El servidor debe estar abierto antes de bloquear: aún no se cubren el primer inicio de sesión, UAC ni RDP. `v0.4.1` conserva el estado estable.
 
 ## Funciones
 

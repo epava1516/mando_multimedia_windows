@@ -11,8 +11,16 @@ Cada frame: longitud unsigned de 32 bits big-endian seguida por un objeto JSON U
 5. Servidor: `{"ok":true,"id":1}`, o error sin repetir la acción. El cliente cierra al recibir error de acción o una respuesta con secuencia incorrecta. Los IDs crecen estrictamente de uno en uno; una repetición o salto cierra la sesión antes de ejecutar.
 6. Estado/heartbeat: `{"op":"status","id":2}`; respuesta con el mismo ID y capacidades. Inactividad de 30 segundos o duración de ocho horas cierra la sesión.
 
-Capacidades: input, lock, task_view, zoom, secure_desktop (false en esta fase), dry_run. Un cliente futuro debe rechazar versiones no admitidas. Mantener campos nuevos opcionales y capacidades explícitas evita depender de detalles de una aplicación externa.
+Capacidades: input, lock, task_view, zoom, secure_desktop (disponibilidad del broker local; no implica prueba física), persistent_pairing, dry_run. Un cliente futuro debe rechazar versiones no admitidas. Mantener campos nuevos opcionales y capacidades explícitas evita depender de detalles de una aplicación externa.
 
 Acciones: move(dx/dy enteros ±500), click(left/right), scroll(steps enteros ±10), text(1–500 caracteres Unicode válidos), key(nombre permitido y hasta cuatro modificadores únicos), zoom(steps entero ±3; se ejecuta un gesto según el signo), task_view y lock. Máximo global 120 acciones/segundo. Todas las entradas se serializan; ningún evento de pulsación queda intencionadamente abierto entre peticiones.
 
 El ACK significa que el adaptador devolvió sin error, no una confirmación visual de Firefox ni garantía de entrega física. Un corte después de ejecutar pero antes del ACK es ambiguo: no se reintenta automáticamente.
+
+## Dispositivos recordados
+
+La respuesta correcta al PIN incluye `device:{id,token}`. El token aleatorio de 256 bits solo se entrega por TLS; Android lo cifra con Keystore. El servidor conserva su hash SHA-256 en el perfil local. Para conectar otra vez: `{op:"resume",protocol:1,device:ID,token:TOKEN}` sobre TLS con el mismo pin de certificado; no necesita un PIN vigente. Se devuelve el mismo esquema de capacidades y empieza una secuencia nueva desde1.
+
+El registro está limitado a cuatro dispositivos. REVOKE borra el registro y rota el PIN dentro de la misma sección crítica; las sesiones comprueban que su dispositivo sigue autorizado antes de atender cada mensaje. Ninguna acción se reintenta para recuperar una conexión rota.
+
+El broker de escritorio usa otro canal: pipe local protegido, sin red, con límites idénticos de frame y validación propia. No acepta rutas, sesiones elegidas por el cliente ni comandos de shell. Solo el servicio decide si la consola está bloqueada y crea el trabajador Winlogon de esa sesión.

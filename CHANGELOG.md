@@ -1,5 +1,14 @@
 # Historial
 
+## 0.5.0-alpha.2 — componentes propios integrados
+
+- Paquete Windows con servidor ejecutable sin Python externo, gestos y bloqueo directo.
+- Servicio local restringido y trabajador Winlogon para la cuenta/sesión autorizada, con instalador y desinstalador revisables.
+- Zoom incluido en el paquete, sin instalar MandoLock ni el complemento por separado para el modo propio.
+- Dispositivos recordados con Android Keystore/AES-GCM; hashes en Windows y revocación de autorizaciones/sesiones.
+- CI Windows: compilación, autopruebas, instalación/desinstalación, identidad del pipe y smoke test TLS del EXE sin entrada real.
+- Prueba física de bloqueo y gestos aún pendiente; se mantiene como alfa.
+
 ## 0.5.0-alpha.1 — servidor propio experimental
 
 - Servidor independiente para Windows: TLS, código de emparejamiento, contrato JSON v1 y ACK por acción.

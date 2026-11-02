@@ -1,4 +1,4 @@
-# Mando Android · experimental 0.5.0-alpha.1
+# Mando Android · experimental 0.5.0-alpha.2
 
 APK propio, paquete `net.mando.personal`, nombre **Mando**. No sustituye ni modifica Remote Mouse. Requiere Android 9 o posterior y el servidor oficial de Windows 5.30 o posterior con TCP y UDP 1978 accesibles.
 
@@ -66,8 +66,10 @@ La APK envía Ctrl+Alt+F12/F11 completos al servidor oficial; los accesos direct
 
 El movimiento paralelo de dos dedos conserva el scroll. El gesto se clasifica tras un umbral y no mezcla zoom con scroll hasta levantar los dedos. Tres dedos hacia arriba abren una vez la Vista de tareas mediante Win+Tab para seleccionar ventanas o escritorios virtuales. La sensibilidad del cursor no altera los umbrales de gestos.
 
-## Servidor propio (0.5.0-alpha.1)
+## Servidor propio integrado (0.5.0-alpha.2)
 
-En la pantalla de conexión puedes elegir **Mando propio (experimental)** y pegar el código completo `mando1:...` que muestra [nuestro servidor de Windows](../windows-server/README.md). La app valida por huella SHA-256 el certificado TLS antes de enviar el PIN, exige TLS>=1.2 y no repite acciones automáticamente. El PIN no se guarda y se borra del formulario al conectar o salir.
+Selecciona **Mando propio (experimental)** y pega una vez el código del paquete [Windows completo](../windows-server/README.md). Android verifica la huella del certificado por TLS antes de enviar el PIN. Después guarda únicamente la autorización de dispositivo con AES-256-GCM y Android Keystore, no una contraseña de Windows.
 
-El servidor propio incluye bloqueo directo sin MandoLock. Reutiliza MandoTouchZoom para el zoom visual. Todavía no controla la pantalla bloqueada/UAC, no almacena dispositivos emparejados y no tiene descubrimiento propio: usa el código de la consola. La opción oficial conserva su protocolo y búsqueda Wi-Fi anteriores. La selección propia sigue siendo experimental y necesita prueba en Windows.
+Para volver, selecciona el servidor propio y pulsa Conectar con el código vacío. Esto permite reconectar estando el PC bloqueado si el servidor sigue abierto. No hay conexión ni repetición automática de acciones. Ajustes → Olvidar PC propio borra esa autorización local; REVOKE en la consola Windows revoca dispositivos y sesiones.
+
+El paquete Windows integra bloqueo, zoom y un broker local restringido para Winlogon. Se anuncia la disponibilidad del componente; eso no sustituye la prueba física de entrada en Windows. El servidor debe iniciarse en la cuenta autorizada antes de bloquear; no hay control de primer login, UAC ni RDP. La opción oficial y su búsqueda Wi-Fi se conservan; descubrimiento del servidor propio queda pendiente.
