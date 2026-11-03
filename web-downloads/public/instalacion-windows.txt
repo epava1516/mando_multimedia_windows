@@ -1,0 +1,20 @@
+MANDO — INSTALACIÓN DEL SERVIDOR WINDOWS
+
+1. Extrae TODO el ZIP en una carpeta de tu cuenta de Windows.
+2. Abre Windows PowerShell 5.1 como administrador en esa carpeta:
+
+Get-ChildItem -Recurse -File | Unblock-File
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\Instalar-MandoCompleto.ps1
+
+Si elevas con una cuenta administrativa diferente de tu cuenta normal, consulta README.md dentro del ZIP: debes indicar el SID de la cuenta normal con -UserSid.
+
+3. Cierra la consola elevada y Remote Mouse (comparte el puerto TCP1979).
+4. Abre MandoServer.exe desde tu cuenta normal. Introduce la IP Wi-Fi del PC.
+5. Si Windows solicita permiso de red, permite únicamente la red privada que uses.
+6. En la app: Desconectar → Mando propio (experimental) → pega el código mando1 que muestra el PC → Conectar.
+
+PORTAPAPELES
+Copia la URL directamente del navegador. En la app: Teclado → Portapapeles → PC → móvil. Después pega en el móvil. Solo texto, máximo 1000 unidades UTF-16; Windows debe estar desbloqueado. No hay sincronización ni pegado automático.
+
+ESTADO
+Servidor experimental. Las pruebas reales de portapapeles en un runner Windows pasan; falta verificar tu navegador, bloqueo y gestos en tu PC. El servidor de red debe permanecer abierto. README.md dentro del ZIP contiene instrucciones completas y desinstalación.

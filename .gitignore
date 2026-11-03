@@ -11,6 +11,7 @@
 !/windows-zoom/
 !/windows-server/
 !/evidence/
+!/web-downloads/
 
 # Local signing material and generated artifacts.
 .state/
@@ -50,3 +51,7 @@ windows-server/*.zip
 windows-server/*.exe
 windows-server/build/
 windows-server/dist/
+
+web-downloads/.env
+web-downloads/public/*.apk
+web-downloads/public/*.zip

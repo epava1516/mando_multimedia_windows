@@ -64,3 +64,7 @@ node android/tests/pinch-zoom.cjs
 ```
 
 El script usa `playwright` por defecto. `PLAYWRIGHT_MODULE` permite indicar un módulo local y `MANDO_CHROMIUM` la ruta de Chromium. Simula el puente Android; no emite controles a un PC.
+
+## Descargar desde el portal
+
+[Descargas de Mando](https://www.sherlockhomeless.net/apps/mando/) — APK actual de pruebas, APK estable anterior y servidor Windows experimental. Acceso con el Authentik del portal. El despliegue Compose y la raíz estática acotada están en [web-downloads](web-downloads/README.md).
