@@ -4,6 +4,7 @@ from ctypes import wintypes as W
 import json
 import struct
 import threading
+import time
 
 PIPE = r'\\.\pipe\Mando.Desktop.v1'
 SERVICE = 'MandoDesktopBroker'
@@ -60,6 +61,7 @@ class DesktopBridge:
             if manager:self.security.CloseServiceHandle(manager)
 
     def io(self,data=None,count=0):
+        if time.monotonic()>=self.deadline:raise TimeoutError('El componente de escritorio no responde')
         class OVERLAPPED(C.Structure):
             _fields_=[('internal',C.c_size_t),('internal_high',C.c_size_t),('offset',W.DWORD),('offset_high',W.DWORD),('event',W.HANDLE)]
         buffer=C.create_string_buffer(data if data is not None else count)
@@ -76,7 +78,7 @@ class DesktopBridge:
             ok=function(self.handle,buffer,len(data) if data is not None else count,C.byref(transferred),C.byref(pending))
             if not ok:
                 if C.get_last_error()!=997:raise OSError('Canal IPC cerrado')
-                if self.kernel.WaitForSingleObject(event,3000)!=0:
+                if self.kernel.WaitForSingleObject(event,max(0,int((self.deadline-time.monotonic())*1000)))!=0:
                     self.kernel.CancelIoEx(self.handle,C.byref(pending))
                     # Keep the OVERLAPPED and buffer alive until cancellation has completed.
                     self.kernel.GetOverlappedResult(self.handle,C.byref(pending),C.byref(transferred),True)
@@ -93,6 +95,7 @@ class DesktopBridge:
 
     def request(self,message):
         with self.lock:
+            self.deadline=time.monotonic()+(.4 if message.get('op')=='status' else 3)
             try:
                 self.connect()
                 self.stage="PIPE_STATUS" if message.get("op")=="status" else "PIPE_INPUT"
