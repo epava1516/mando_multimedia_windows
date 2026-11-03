@@ -15,6 +15,9 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import android.widget.Button;
+import android.widget.HorizontalScrollView;
+import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import android.widget.Toast;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
@@ -38,6 +41,8 @@ public final class MainActivity extends Activity {
     private WebView web;
     private RemoteKeyboard editor;
     private LinearLayout keyboardRow;
+    private final LinkedHashSet<String> imeModifiers=new LinkedHashSet<>();
+    private final Map<String,Button> imeModifierButtons=new LinkedHashMap<>();
     private final RemoteClient officialClient = new RemoteClient();
     private final OwnClient ownClient = new OwnClient();
     private volatile InputClient client = officialClient;
@@ -65,21 +70,25 @@ public final class MainActivity extends Activity {
         web = new WebView(this);
         root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         keyboardRow=new LinearLayout(this);
+        keyboardRow.setOrientation(LinearLayout.VERTICAL);
         keyboardRow.setPadding(12,8,12,8);
+        LinearLayout editorRow=new LinearLayout(this);
         keyboardRow.setBackgroundColor(0xff193030);
         editor=new RemoteKeyboard(this,new RemoteKeyboard.Sink() {
             public void text(String value) {
-                try {sendKeyboard(new JSONObject().put("type","text").put("text",value));}catch(Exception ignored){ }
+                sendImeText(value);
             }
             public void key(String value) {
-                try {sendKeyboard(new JSONObject().put("type","key").put("key",value));}catch(Exception ignored){ }
+                sendImeKey(value);
             }
         });
-        keyboardRow.addView(editor,new LinearLayout.LayoutParams(0,-2,1));
+        editorRow.addView(editor,new LinearLayout.LayoutParams(0,-2,1));
         Button closeKeyboard=new Button(this);
         closeKeyboard.setText("Cerrar");
         closeKeyboard.setOnClickListener(view -> showKeyboard(false));
-        keyboardRow.addView(closeKeyboard,new LinearLayout.LayoutParams(-2,-2));
+        editorRow.addView(closeKeyboard,new LinearLayout.LayoutParams(-2,-2));
+        keyboardRow.addView(editorRow,new LinearLayout.LayoutParams(-1,-2));
+        addImeKeyStrip();
         keyboardRow.setVisibility(View.GONE);
         root.addView(keyboardRow,new LinearLayout.LayoutParams(-1,-2));
         setContentView(root);
@@ -90,6 +99,7 @@ public final class MainActivity extends Activity {
                 boolean visible=insets.isVisible(WindowInsets.Type.ime());
                 if(imeVisible!=visible) {
                     imeVisible=visible;
+                    if(!visible)resetImeModifiers();
                     web.post(() -> {
                         if(!destroyed)web.evaluateJavascript("window.mandoImeChanged && window.mandoImeChanged("+visible+")",null);
                     });
@@ -137,6 +147,71 @@ public final class MainActivity extends Activity {
         web.loadUrl(LOCAL);
     }
 
+    private int dp(int value) {return Math.round(value*getResources().getDisplayMetrics().density);}
+
+    private void resetImeModifiers() {
+        imeModifiers.clear();
+        for(Button button:imeModifierButtons.values()) {
+            button.setSelected(false);button.setTextColor(0xffeff7f2);
+            button.setContentDescription(button.getText()+", desactivado");
+        }
+    }
+
+    private void sendImeKey(String name) {
+        JSONArray selected=new JSONArray();
+        for(String modifier:imeModifiers)selected.put(modifier);
+        resetImeModifiers();
+        try {sendKeyboard(new JSONObject().put("type","key").put("key",name).put("modifiers",selected));}
+        catch(Exception ignored) { }
+    }
+
+    private void sendImeText(String value) {
+        if(imeModifiers.isEmpty()) {
+            try {sendKeyboard(new JSONObject().put("type","text").put("text",value));}catch(Exception ignored) { }
+        } else if(value.matches("[a-zA-Z0-9 ]")) {
+            sendImeKey(" ".equals(value)?"SPACE":value.toUpperCase(java.util.Locale.ROOT));
+        } else {
+            resetImeModifiers();
+            Toast.makeText(this,"La combinación requiere una letra, número o tecla de la barra",Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void addImeKeyStrip() {
+        HorizontalScrollView scroll=new HorizontalScrollView(this);
+        scroll.setContentDescription("Teclas extendidas. Desliza horizontalmente para ver más");
+        scroll.setHorizontalScrollBarEnabled(true);
+        LinearLayout strip=new LinearLayout(this);
+        String[][] keys={{"LEFT","←"},{"DOWN","↓"},{"UP","↑"},{"RIGHT","→"},
+            {"CTRL","Ctrl"},{"ALT","Alt"},{"SHIFT","Shift"},{"WIN","Win"},
+            {"ESC","Esc"},{"TAB","Tab"},{"HOME","Inicio"},{"END","Fin"},
+            {"PAGEUP","Re Pág"},{"PAGEDOWN","Av Pág"},{"DELETE","Supr"}};
+        for(String[] item:keys) {
+            final String name=item[0];
+            Button button=new Button(this);button.setText(item[1]);
+            button.setTextSize(14);button.setTextColor(0xffeff7f2);
+            button.setMinWidth(dp(48));button.setMinimumWidth(dp(48));
+            button.setFocusable(false);button.setAllCaps(false);
+            String label="LEFT".equals(name)?"Flecha izquierda":"RIGHT".equals(name)?"Flecha derecha":
+                "UP".equals(name)?"Flecha arriba":"DOWN".equals(name)?"Flecha abajo":item[1];
+            button.setContentDescription(label);
+            boolean modifier="CTRL".equals(name)||"ALT".equals(name)||"SHIFT".equals(name)||"WIN".equals(name);
+            if(modifier)imeModifierButtons.put(name,button);
+            button.setOnClickListener(view -> {
+                editor.finishAndSend();
+                if(modifier) {
+                    if(!imeModifiers.remove(name))imeModifiers.add(name);
+                    boolean selected=imeModifiers.contains(name);
+                    button.setSelected(selected);button.setTextColor(selected?0xffc7ef9e:0xffeff7f2);
+                    button.setContentDescription(button.getText()+(selected?", activado":", desactivado"));
+                } else sendImeKey(name);
+            });
+            LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-2,dp(48));
+            params.setMargins(0,0,dp(4),0);strip.addView(button,params);
+        }
+        scroll.addView(strip);keyboardRow.addView(scroll,new LinearLayout.LayoutParams(-1,dp(52)));
+        resetImeModifiers();
+    }
+
     private WebResourceResponse blocked() {
         return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", new HashMap<String,String>(), new ByteArrayInputStream(new byte[0]));
     }
@@ -149,6 +224,7 @@ public final class MainActivity extends Activity {
             editor.post(() -> manager.showSoftInput(editor,InputMethodManager.SHOW_IMPLICIT));
         } else {
             editor.finishAndSend();
+            resetImeModifiers();
             manager.hideSoftInputFromWindow(editor.getWindowToken(),0);
             keyboardRow.setVisibility(View.GONE);web.requestFocus();
         }
@@ -449,7 +525,7 @@ public final class MainActivity extends Activity {
         foreground=false;
         synchronized(resumeStoreLock){resume.pause(android.os.SystemClock.elapsedRealtime(),client.isConnected());saveResumeCheckpoint();}
         resuming=false;
-        super.onStop();editor.discard();showKeyboard(false);
+        super.onStop();editor.discard();resetImeModifiers();showKeyboard(false);
         officialClient.close();ownClient.close();
         if(web!=null)web.evaluateJavascript("window.mandoSuspended && window.mandoSuspended()",null);
     }

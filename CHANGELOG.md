@@ -1,5 +1,13 @@
 # Historial
 
+## 0.5.0-alpha.6 — barra sobre el teclado Android
+
+- Fila nativa con desplazamiento horizontal entre el editor y el teclado Android: flechas, Ctrl/Alt/Shift/Win, Esc, Tab, Inicio/Fin, Re/Av Pág y Supr.
+- Modificadores de una combinación aplicables a las teclas de la barra o a una letra/número/espacio del teclado Android. Se limpian al ocultar el teclado o abandonar la app; no se mantienen pulsados en el PC.
+- Botones sin captura del foco del editor, objetivos de 48dp y etiquetas accesibles.
+- Compilación y firma verificadas; prueba física de disposición y combinaciones pendiente.
+
+
 ## 0.5.0-alpha.5 — rueda fina
 
 - Sustituye las ráfagas de quince muestras por muestras individuales en el servidor oficial.
