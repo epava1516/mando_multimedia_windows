@@ -5,6 +5,7 @@ let suspended = false;
 let uiGeneration = 0;
 let connectionMode = 'official';
 let ownDeviceSaved = false;
+let discoveredOwnEndpoint=null;
 let activeTab = 'touch';
 let irAvailable = false;
 let zoomHelperReady = false;
@@ -120,8 +121,8 @@ function renderServers() {
       $('server-mode').value=server.mode==='own'?'own':'official';
       $('server-mode').dispatchEvent(new Event('change'));
       $('pin').value=server.host;
-      status(server.mode==='own'?'Mando encontrado. Pega el código completo que muestra su icono en Windows y pulsa Conectar.':'Seleccionado. Pulsa Conectar.');
-      if(server.mode==='own')$('own-code').focus();
+      discoveredOwnEndpoint=server.mode==='own'?{host:server.host,port:server.port}:null;
+      status(server.mode==='own'?(ownDeviceSaved?'PC encontrado. Pulsa Conectar; se comprobará su identidad guardada.':'Mando encontrado. Escanea su QR o pega el código del PC.'):'Seleccionado. Pulsa Conectar.');
     });
     $('servers').appendChild(button);
   }
@@ -189,6 +190,13 @@ setInterval(() => {
     else if (!result.paired&&!suspended) {setPaired(false); status('El servidor ha cerrado la conexión. Vuelve a conectar.', true);}
   }).catch(() => {});
 }, 5000);
+$('scan-qr').addEventListener('click',()=>api('/api/qr-scan',{}).catch(error=>status(error.message,true)));
+window.mandoQrScanned=value=>{
+  selectTab('touch');
+  $('server-mode').value='own';$('server-mode').dispatchEvent(new Event('change'));
+  $('own-code').value=value;
+  status('QR leído. Pulsa Conectar para autorizar este PC.');
+};
 $('scan').addEventListener('click', async () => {
   $('scan').disabled = true; $('pair-button').disabled = true;
   $('servers').replaceChildren();
@@ -246,6 +254,7 @@ $('forget-own').addEventListener('click',async () => {
   }catch(error){status(error.message,true);}
 });
 $('server-mode').addEventListener('change', () => {
+  discoveredOwnEndpoint=null;
   const own = $('server-mode').value === 'own';
   $('pin').hidden = own; $('pin').disabled = own;
   $('own-code').hidden = !own; $('own-code').disabled = !own; $('own-code').required = own && !ownDeviceSaved;
@@ -259,7 +268,7 @@ $('pair-form').addEventListener('submit', async event => {
   $('pair-button').disabled = true;
   try {
     const mode = $('server-mode').value;
-    const connection = await api('/api/pair', {mode, host: $('pin').value.trim(), code:$('own-code').value.trim()});
+    const connection = await api('/api/pair', {mode, host: $('pin').value.trim(), code:$('own-code').value.trim(), ownHost:discoveredOwnEndpoint?.host, ownPort:discoveredOwnEndpoint?.port});
     connectionMode = connection.mode || mode;
     if (connectionMode === 'own') setOwnDeviceSaved(true);
     $('own-code').value = '';

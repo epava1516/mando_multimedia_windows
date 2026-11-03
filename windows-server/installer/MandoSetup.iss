@@ -4,8 +4,8 @@
 [Setup]
 AppId={{DF9BB8D5-33B6-45C9-95D7-AC12D3485D1D}
 AppName=Mando Server
-AppVersion=0.5.0-alpha.11
-VersionInfoVersion=0.5.0.11
+AppVersion=0.5.0-alpha.12
+VersionInfoVersion=0.5.0.12
 AppPublisher=Mando
 DefaultDirName={autopf}\Mando
 DefaultGroupName=Mando
@@ -16,7 +16,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 OutputDir=..\..\dist
-OutputBaseFilename=MandoSetup-0.5.0-alpha.11
+OutputBaseFilename=MandoSetup-0.5.0-alpha.12
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -36,6 +36,7 @@ Source: "{#PayloadDir}\Configure-Mando.ps1"; DestDir: "{app}"; Flags: ignorevers
 Source: "{#PayloadDir}\desktop\MandoDesktopBroker.cs"; DestDir: "{app}\desktop"; Flags: ignoreversion
 Source: "{#PayloadDir}\windows-zoom\MandoTouchZoom.cs"; DestDir: "{app}\windows-zoom"; Flags: ignoreversion
 Source: "{#PayloadDir}\LEEME.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PayloadDir}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{commonprograms}\Mando\Mando Server"; Filename: "{app}\MandoTray.exe"; WorkingDir: "{app}"
 Name: "{commonprograms}\Mando\Instrucciones"; Filename: "{app}\LEEME.txt"

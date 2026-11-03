@@ -21,13 +21,14 @@ const server = http.createServer((request, response) => {
     const page = await browser.newPage({viewport:{width:390,height:800},hasTouch:true});
     const errors=[]; page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
-      window.actions=[];window.pairRequests=[];window.irActions=[];
+      window.actions=[];window.pairRequests=[];window.irActions=[];window.qrRequests=0;window.scanHost="192.168.1.10";
       window.MandoNative={request(id, raw) {
         const {path, data}=JSON.parse(raw);
         if (path==='/api/action') window.actions.push(data);
         if (path==='/api/ir/send') window.irActions.push(data);
         if (path==='/api/pair') window.pairRequests.push(data);
-        const result = path==='/api/scan' ? {servers:[{host:'192.168.1.10',mode:'own',version:'Mando',port:1979}]} : path==='/api/pair' ? {mode:data.mode,version:'Mando v1 TLS',directLock:true,zoomHelperInstalled:true} : path==='/api/status' ? {paired:true} : path==='/api/settings' ?
+        if(path==='/api/qr-scan')window.qrRequests++;
+        const result = path==='/api/scan' ? {servers:[{host:window.scanHost,mode:'own',version:'Mando',port:1979}]} : path==='/api/pair' ? {mode:data.mode,version:'Mando v1 TLS',directLock:true,zoomHelperInstalled:true} : path==='/api/status' ? {paired:true} : path==='/api/settings' ?
           {sensitivity:.65,irTabVisible:true,zoomHelperInstalled:true} : path==='/api/ir/status' ? {available:true} : {ok:true};
         setTimeout(()=>window.nativeReply(id,result),0);
       }};
@@ -179,12 +180,27 @@ const server = http.createServer((request, response) => {
     assert(await page.locator('#scan').isVisible(),'own mode must support local discovery without skipping pairing');
     assert(await page.locator('#pin').isDisabled(),'hidden official host must not block own pairing');
     const code='mando1:192.168.1.10:1979:'+('a'.repeat(64))+':12345678';
-    await page.locator('#own-code').fill(code);
+    await page.locator('#scan-qr').click();
+    await page.waitForTimeout(60);
+    assert.equal(await page.evaluate(()=>window.qrRequests),1);
+    await page.evaluate(value=>window.mandoQrScanned(value),code);
+    assert.equal(await page.locator('#own-code').inputValue(),code,'QR must fill complete identity and endpoint');
+    assert.equal(await page.evaluate(()=>window.pairRequests.length),0,'reading QR must wait for explicit Connect');
     await page.locator('#pair-button').click();
     await page.locator('#touchpad').waitFor({state:'visible'});
     assert.equal(await page.locator('#own-code').inputValue(),'','pairing secret must clear after connecting');
     const pair=await page.evaluate(()=>window.pairRequests.at(-1));
     assert.equal(pair.mode,'own');assert.equal(pair.code,code);
+    // A remembered PC can move IP without requiring a new QR or new device registration.
+    await page.locator('[data-tab=settings]').click();await page.locator('#disconnect').click();
+    await page.locator('[data-tab=touch]').click();await page.evaluate(()=>window.scanHost='192.168.1.22');
+    await page.locator('#scan').click();await page.locator('#servers button').first().click();
+    assert.equal(await page.locator('#own-code').inputValue(),'');
+    assert.equal(await page.locator('#own-code').getAttribute('required'),null);
+    await page.locator('#pair-button').click();await page.locator('#touchpad').waitFor({state:'visible'});
+    const moved=await page.evaluate(()=>window.pairRequests.at(-1));
+    assert.equal(moved.ownHost,'192.168.1.22');assert.equal(moved.ownPort,1979);assert.equal(moved.code,'');
+
     // Returning must retain Control until native reconnect succeeds or fails.
     await page.locator('[data-tab=touch]').click();
     await page.evaluate(()=>{window.mandoSuspended();window.mandoResuming();});

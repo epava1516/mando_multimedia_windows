@@ -359,7 +359,10 @@ def main():
             print('MANDO_DESKTOP_UNAVAILABLE '+adapter.desktop_bridge.last_error,flush=True)
         def print_code():
             print('Copia este codigo en Mando (caduca en 10 minutos):', flush=True)
-            print(f'mando1:{host}:{arguments.port}:{fingerprint}:{state.pin}', flush=True)
+            code=f'mando1:{host}:{arguments.port}:{fingerprint}:{state.pin}'
+            print(code, flush=True)
+            from pairing_qr import frame
+            print(frame(code),flush=True)
         def console():
             while True:
                 try: command = input()

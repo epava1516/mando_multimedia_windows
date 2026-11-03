@@ -85,9 +85,11 @@ jobs:
           Copy-Item dist/MandoServer.exe,dist/MandoTray.exe,windows-server/Instalar-MandoCompleto.ps1,windows-server/Desinstalar-MandoCompleto.ps1,windows-server/installer/Configure-Mando.ps1,windows-server/installer/LEEME.txt $payload
           Copy-Item windows-server/desktop/MandoDesktopBroker.cs "$payload/desktop/"
           Copy-Item windows-zoom/MandoTouchZoom.cs "$payload/windows-zoom/"
+          python windows-server/installer/package_licenses.py "$payload/licenses"
+
           & "$compilerDir/ISCC.exe" ("/DPayloadDir="+$payload) windows-server/installer/MandoSetup.iss
           if ($LASTEXITCODE -ne 0) { throw 'Installer compile failed' }
-          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.11.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.12.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw 'Installer failed' }
           if ((Get-Service MandoDesktopBroker).Status -ne 'Running') { throw 'Installed service is not running' }
           if (-not (Test-Path "$env:ProgramFiles/Mando/MandoTray.exe")) { throw 'Tray launcher not installed' }
@@ -97,7 +99,7 @@ jobs:
           if ((Get-ItemProperty -LiteralPath $startupKey).MandoServer -ne $expected) { throw 'Per-user startup not configured' }
           $firewall = Get-NetFirewallRule -Name Mando-Server-TCP,Mando-Discovery-UDP
           if (@($firewall).Count -ne 2 -or ($firewall | Where-Object {$_.Profile -ne 'Private'})) { throw 'Private firewall rules missing' }
-          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.11.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.12.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw 'Installer upgrade failed' }
           $remove = Start-Process -FilePath "$env:ProgramFiles/Mando/unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($remove.ExitCode -ne 0 -or (Get-Service MandoDesktopBroker -ErrorAction SilentlyContinue)) { throw 'Installer uninstall failed' }
@@ -109,7 +111,7 @@ jobs:
           path: |
             dist/MandoServer.exe
             dist/MandoTray.exe
-            dist/MandoSetup-0.5.0-alpha.11.exe
+            dist/MandoSetup-0.5.0-alpha.12.exe
             build/MandoDesktopBroker.exe
             build/MandoTouchZoom.exe
           retention-days: 7

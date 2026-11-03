@@ -44,11 +44,15 @@ final class OwnClient implements InputClient {
         JSONObject profile;
         JSONObject authentication;
         if(code!=null && !code.isEmpty()) {
-            if(!code.matches("mando1:[0-9.]{7,15}:[0-9]{4,5}:[a-fA-F0-9]{64}:[0-9]{8}"))
-                throw new IOException("Pega el código mando1 completo que muestra tu PC");
+            PairingCode.validate(code);
             String[] fields=code.split(":");
             profile=new JSONObject().put("host",fields[1]).put("port",Integer.parseInt(fields[2])).put("fingerprint",fields[3]);
             authentication=new JSONObject().put("op","pair").put("protocol",1).put("pin",fields[4]);
+            if(saved!=null && fields[3].equalsIgnoreCase(saved.optString("fingerprint")) &&
+                    saved.optString("id").matches("[a-f0-9]{32}") && saved.optString("token").matches("[A-Za-z0-9_-]{43}")) {
+                profile.put("id",saved.getString("id")).put("token",saved.getString("token"));
+                authentication=new JSONObject().put("op","resume").put("protocol",1).put("device",saved.getString("id")).put("token",saved.getString("token"));
+            }
         } else {
             if(saved==null)throw new IOException("Introduce el código del PC la primera vez");
             profile=new JSONObject(saved.toString());
@@ -77,7 +81,12 @@ final class OwnClient implements InputClient {
             if(!"mando".equals(greeting.optString("server")) || greeting.optInt("protocol")!=1)throw new IOException("Servidor propio incompatible");
             write(authentication);
             JSONObject reply=read();
-            if(!reply.optBoolean("ok") || reply.optInt("protocol")!=1)throw new IOException("Código caducado o emparejamiento rechazado en el PC");
+            if(!reply.optBoolean("ok") || reply.optInt("protocol")!=1) {
+                if("resume".equals(authentication.optString("op")) && code!=null&&!code.isEmpty()) {
+                    close();return connect(network,code,null);
+                }
+                throw new IOException("La autorización ya no es válida. Escanea el QR del PC para volver a autorizarlo");
+            }
             capabilities=reply.getJSONObject("capabilities");sequence=0;
             if(socket!=tls)throw new IOException("Conexión cancelada");
             if(reply.has("device")) {

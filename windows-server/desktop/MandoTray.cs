@@ -21,6 +21,7 @@ internal sealed class MandoTray : Form {
     readonly ComboBox networks=new ComboBox();
     readonly Label status=new Label();
     readonly TextBox code=new TextBox();
+    readonly PictureBox qr=new PictureBox();
     readonly Button refresh=new Button(),copy=new Button(),restart=new Button(),diagnostics=new Button();
     string desktopStatus="";
     readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();
@@ -55,23 +56,25 @@ internal sealed class MandoTray : Form {
     internal MandoTray(bool test,bool hidden) {
         smoke=test;background=hidden;
         if(smoke)smokeDirectory=Path.Combine(Path.GetTempPath(),"mando-tray-test-"+Guid.NewGuid().ToString("N"));
-        Text="Mando Server";ClientSize=new Size(540,340);MinimumSize=new Size(500,370);
+        Text="Mando Server";ClientSize=new Size(600,680);MinimumSize=new Size(540,520);
         if(background){WindowState=FormWindowState.Minimized;ShowInTaskbar=false;}
         StartPosition=FormStartPosition.CenterScreen;Font=new Font("Segoe UI",10);Icon=SystemIcons.Application;
-        var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(18),ColumnCount=1,RowCount=7};
+        var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(18),ColumnCount=1,RowCount=7,AutoScroll=true};
+        for(int row=0;row<7;row++)layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
         layout.Controls.Add(new Label{Text="Mando Server",AutoSize=true,Font=new Font("Segoe UI",17,FontStyle.Bold)});
         networks.DropDownStyle=ComboBoxStyle.DropDownList;networks.Dock=DockStyle.Fill;
         layout.Controls.Add(networks);
         status.AutoSize=true;status.MaximumSize=new Size(490,0);status.Text="Detectando la red local…";layout.Controls.Add(status);
         code.ReadOnly=true;code.Multiline=true;code.Height=62;code.Dock=DockStyle.Fill;code.ScrollBars=ScrollBars.Vertical;
+        qr.Size=new Size(280,280);qr.SizeMode=PictureBoxSizeMode.Zoom;qr.AccessibleName="QR para emparejar Mando en Android";qr.Anchor=AnchorStyles.Top;layout.Controls.Add(qr);
         code.AccessibleName="Código de emparejamiento del PC";layout.Controls.Add(code);
         var buttons=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};
         copy.Text="Copiar código";refresh.Text="Nuevo código";restart.Text="Reiniciar";
         diagnostics.Text="Diagnóstico";
         foreach(var b in new[]{copy,refresh,restart,diagnostics}){b.AutoSize=true;b.MinimumSize=new Size(110,36);buttons.Controls.Add(b);}
         layout.Controls.Add(buttons);
-        layout.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(490,0),Text="En Android: Buscar en Wi-Fi → Mando propio → pega el código del PC. Cerrar esta ventana deja Mando en la bandeja."});
+        layout.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(490,0),Text="En Android: Escanear QR del PC → Conectar. El PC queda recordado; si cambia su IP, Buscar en Wi-Fi permite recuperarlo."});
         Controls.Add(layout);
         var menu=new ContextMenuStrip();
         menu.Items.Add("Abrir Mando",null,(s,e)=>ShowWindow());
@@ -82,7 +85,7 @@ internal sealed class MandoTray : Form {
         tray.DoubleClick+=(s,e)=>ShowWindow();
         copy.Click+=(s,e)=>CopyCode();refresh.Click+=(s,e)=>Send("R");restart.Click+=(s,e)=>StartServer();diagnostics.Click+=(s,e)=>ShowDiagnostics();
         FormClosing+=(s,e)=>{if(e.CloseReason==CloseReason.UserClosing&&!exiting){e.Cancel=true;Hide();}};
-        FormClosed+=(s,e)=>{timer.Stop();StopServer();tray.Visible=false;tray.Dispose();timer.Dispose();};
+        FormClosed+=(s,e)=>{timer.Stop();StopServer();ClearQr();tray.Visible=false;tray.Dispose();timer.Dispose();};
         Shown+=(s,e)=>{
             if(smoke)networks.Items.Add(new Address{IP="127.0.0.1",Name="Prueba aislada"});
             else foreach(var address in Addresses())networks.Items.Add(address);
@@ -91,6 +94,17 @@ internal sealed class MandoTray : Form {
             if(background)Hide();
             timer.Interval=1000;timer.Tick+=Tick;timer.Start();
         };
+    }
+    void ClearQr(){var previous=qr.Image;qr.Image=null;if(previous!=null)previous.Dispose();}
+    void SetQr(string line) {
+        string[] fields=line.Split(' ');int width;
+        if(fields.Length!=3||!Int32.TryParse(fields[1],out width)||width<21||width>97||fields[2].Length!=width*width||!Regex.IsMatch(fields[2],"^[01]+$"))return;
+        var image=new Bitmap(width*4,width*4);
+        using(var graphics=Graphics.FromImage(image)) {
+            graphics.Clear(Color.White);
+            for(int y=0;y<width;y++)for(int x=0;x<width;x++)if(fields[2][y*width+x]=='1')graphics.FillRectangle(Brushes.Black,x*4,y*4,4,4);
+        }
+        ClearQr();qr.Image=image;
     }
     void ShowDiagnostics() {
         string account="No disponible",service="No disponible",configured="No disponible";
@@ -103,11 +117,11 @@ internal sealed class MandoTray : Form {
         }catch(Exception){}
         MessageBox.Show(service+"\r\n"+configured+"\r\n"+account+"\r\n"+(desktopStatus.Length>0?desktopStatus:"Sin fallo de bloqueo detectado")+"\r\n\r\nEl escritorio normal funciona aunque el bloqueo no esté disponible.","Diagnóstico de Mando");
     }
-    void ShowWindow(){ShowInTaskbar=true;Show();WindowState=FormWindowState.Normal;Activate();}
+    void ShowWindow(){ShowInTaskbar=true;Show();WindowState=FormWindowState.Normal;Activate();if(ready&&DateTime.UtcNow>=codeUntil)Send("R");}
     void SetStatus(string value){status.Text=value;}
     void OnUI(Action action){if(!IsDisposed&&IsHandleCreated)try{BeginInvoke(action);}catch(InvalidOperationException){}}
     void StartServer() {
-        StopServer();ready=false;code.Clear();startupError="";desktopStatus="";copy.Enabled=false;refresh.Enabled=false;
+        StopServer();ready=false;code.Clear();ClearQr();startupError="";desktopStatus="";copy.Enabled=false;refresh.Enabled=false;
         var selected=networks.SelectedItem as Address;
         if(selected==null||(!Private(selected.IP)&&!smoke)){SetStatus("Selecciona una red local para iniciar.");return;}
         activeHost=selected.IP;
@@ -119,12 +133,14 @@ internal sealed class MandoTray : Form {
         if(smoke){Directory.CreateDirectory(smokeDirectory);info.EnvironmentVariables["LOCALAPPDATA"]=smokeDirectory;}
         var process=new Process{StartInfo=info};
         process.OutputDataReceived+=(s,e)=>{
-            string line=e.Data;if(line==null||line.Length>256)return;
+            string line=e.Data;if(line==null||line.Length>10000)return;
             OnUI(()=>{
                 if(child!=process)return;
+                if(line.StartsWith("MANDO_QR ",StringComparison.Ordinal)){if(ready)SetQr(line);return;}
+                if(line.Length>256)return;
                 var match=Pairing.Match(line);
                 if(match.Success&&match.Groups[1].Value==activeHost&&match.Groups[2].Value=="1979") {
-                    code.Text=line;codeUntil=DateTime.UtcNow.AddMinutes(10);ready=true;copy.Enabled=true;refresh.Enabled=true;
+                    ClearQr();code.Text=line;codeUntil=DateTime.UtcNow.AddMinutes(10);ready=true;copy.Enabled=true;refresh.Enabled=true;
                     SetStatus("Escuchando en "+activeHost+":1979 · esperando al móvil"+(desktopStatus.Length>0?" · bloqueo pendiente":""));
                 } else if(Regex.IsMatch(line,@"^MANDO_STATUS [0-4]$")) {
                     SetStatus("Escuchando en "+activeHost+":1979 · móviles conectados: "+line.Substring(13)+(desktopStatus.Length>0?" · bloqueo pendiente":""));
@@ -162,13 +178,17 @@ internal sealed class MandoTray : Form {
     void ExitServer(){exiting=true;Close();}
     void Tick(object sender,EventArgs e) {
         ticks++;
-        if(smoke){if(ready){if(background&&Visible){ExitServer();return;}Close();smokeResult=!Visible&&tray.Visible&&child!=null&&!child.HasExited?0:1;ExitServer();}else if(ticks>=15)ExitServer();return;}
+        if(smoke){if(ready&&qr.Image!=null){if(background&&Visible){ExitServer();return;}Close();smokeResult=!Visible&&tray.Visible&&child!=null&&!child.HasExited?0:1;ExitServer();}else if(ticks>=15)ExitServer();return;}
         if(child!=null&&child.HasExited){ready=false;copy.Enabled=false;refresh.Enabled=false;SetStatus(startupError.Length>0?startupError:"El servidor se ha cerrado. Comprueba el servicio de Mando y pulsa Reiniciar.");}
         else if(ready&&ticks%3==0)Send("STATUS");
-        if(ready&&DateTime.UtcNow>=codeUntil)copy.Enabled=false;
-        if(ticks%5==0&&!ready&&!exiting) {
+        if(ready&&DateTime.UtcNow>=codeUntil){copy.Enabled=false;ClearQr();}
+        if(ticks%5==0&&!exiting) {
             var available=Addresses();
-            if(available.Count>0) {
+            if(ready&&!available.Any(a=>a.IP==activeHost)) {
+                StopServer();code.Clear();ClearQr();copy.Enabled=false;refresh.Enabled=false;
+                SetStatus("La red ha cambiado. Esperando una dirección local para reconectar…");
+            }
+            if(!ready&&available.Count>0) {
                 string previous=(networks.SelectedItem as Address)==null?null:((Address)networks.SelectedItem).IP;
                 networks.Items.Clear();foreach(var address in available)networks.Items.Add(address);
                 int selected=available.FindIndex(a=>a.IP==previous);networks.SelectedIndex=selected<0?0:selected;

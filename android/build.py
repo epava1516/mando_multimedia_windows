@@ -1,5 +1,6 @@
-"""Build using caller-supplied Android SDK/JDK; no Gradle or downloaded app code."""
+"""Build using caller-supplied Android SDK/JDK; vendored verified ZXing; no Gradle."""
 import os
+import hashlib
 from pathlib import Path
 import secrets
 import subprocess
@@ -12,6 +13,9 @@ SDK = Path(sdk_override).expanduser() if sdk_override else next(
     (path for path in sdk_candidates if path.is_dir()), sdk_candidates[0])
 TOOLS = SDK / 'build-tools' / '36.0.0'
 PLATFORM = SDK / 'platforms' / 'android-36' / 'android.jar'
+ZXING = ROOT / 'vendor' / 'zxing-core-3.5.3.jar'
+if hashlib.sha256(ZXING.read_bytes()).hexdigest() != '8d8064c1636fdaef7189dd9055c7d59950a8940a12f2293956446ec3c109fd82':
+    raise RuntimeError('ZXing digest mismatch')
 BUILD = ROOT / 'build'
 for name in ['generated', 'classes', 'dex']:
     (BUILD/name).mkdir(parents=True, exist_ok=True)
@@ -22,13 +26,13 @@ def run(*args, env=None):
 run(TOOLS/'aapt2', 'compile', '--dir', ROOT/'res', '-o', BUILD/'compiled.zip')
 run(TOOLS/'aapt2', 'link', '-o', BUILD/'resources.apk', '-I', PLATFORM,
     '--manifest', ROOT/'AndroidManifest.xml', '--min-sdk-version', '28', '--target-sdk-version', '35',
-    '--version-code', '21', '--version-name', '0.5.0-alpha.10', '--java', BUILD/'generated',
+    '--version-code', '22', '--version-name', '0.5.0-alpha.12', '--java', BUILD/'generated',
     '-A', ROOT/'assets', BUILD/'compiled.zip')
 sources = sorted((ROOT/'src').rglob('*.java')) + sorted((BUILD/'generated').rglob('*.java'))
-run('javac', '-encoding', 'UTF-8', '--release', '8', '-classpath', PLATFORM,
+run('javac', '-encoding', 'UTF-8', '--release', '8', '-classpath', str(PLATFORM)+os.pathsep+str(ZXING),
     '-d', BUILD/'classes', *sources)
 classes = sorted((BUILD/'classes').rglob('*.class'))
-run(TOOLS/'d8', '--lib', PLATFORM, '--min-api', '28', '--output', BUILD/'dex', *classes)
+run(TOOLS/'d8', '--lib', PLATFORM, '--min-api', '28', '--output', BUILD/'dex', ZXING, *classes)
 with zipfile.ZipFile(BUILD/'resources.apk') as original, zipfile.ZipFile(BUILD/'unsigned.apk', 'w') as target:
     for item in original.infolist(): target.writestr(item, original.read(item.filename))
     target.write(BUILD/'dex'/'classes.dex', 'classes.dex')

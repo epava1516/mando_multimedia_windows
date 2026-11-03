@@ -3,6 +3,7 @@ package net.mando.personal;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.net.ConnectivityManager;
@@ -41,6 +42,8 @@ import java.util.concurrent.TimeUnit;
 public final class MainActivity extends Activity {
     private static final String LOCAL = "https://mando.local/";
     private WebView web;
+    private String pendingQr;
+    private boolean webReady;
     private RemoteKeyboard editor;
     private LinearLayout keyboardRow;
     private final LinkedHashSet<String> imeModifiers=new LinkedHashSet<>();
@@ -122,6 +125,7 @@ public final class MainActivity extends Activity {
         web.setBackgroundColor(0xff102323);
         web.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view,String url) {
+                webReady=true;deliverQr();
                 if(foreground&&resuming)web.evaluateJavascript("window.mandoResuming && window.mandoResuming()",null);
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -147,6 +151,19 @@ public final class MainActivity extends Activity {
         });
         web.addJavascriptInterface(new Bridge(), "MandoNative");
         web.loadUrl(LOCAL);
+    }
+
+    @Override protected void onResume(){super.onResume();deliverQr();}
+    @Override protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data);
+        if(request!=4107||result!=RESULT_OK||data==null)return;
+        try{pendingQr=PairingCode.validate(data.getStringExtra("code"));deliverQr();}
+        catch(IOException invalid){Toast.makeText(this,"El QR no contiene un código de Mando válido",Toast.LENGTH_LONG).show();}
+    }
+    private void deliverQr() {
+        if(!foreground||!webReady||pendingQr==null||destroyed)return;
+        String value=pendingQr;pendingQr=null;
+        web.evaluateJavascript("window.mandoQrScanned && window.mandoQrScanned("+JSONObject.quote(value)+")",null);
     }
 
     private int dp(int value) {return Math.round(value*getResources().getDisplayMetrics().density);}
@@ -412,6 +429,11 @@ public final class MainActivity extends Activity {
                             result.put("imeVisible",imeVisible);
                         } else if ("/api/own-forget".equals(path)) {
                             ownClient.close();deviceStore.forget();result.put("ok",true);
+                        } else if ("/api/qr-scan".equals(path)) {
+                            if(foreground&&!resuming&&resume.current(stamp))runOnUiThread(() -> {
+                                if(foreground&&!resuming&&resume.current(stamp))startActivityForResult(new Intent(MainActivity.this,QrScanner.class),4107);
+                            });
+                            result.put("ok",true);
                         } else if ("/api/clipboard".equals(path)) {
                             if(foreground&&!resuming&&resume.current(stamp))runOnUiThread(() -> showClipboard());
                             result.put("ok",true);
@@ -463,7 +485,14 @@ public final class MainActivity extends Activity {
                             if(own) {
                                 try {
                                     String code=data.optString("code","");
-                                    JSONObject profile=ownClient.connect(network,code,code.isEmpty()?deviceStore.load():null);
+                                    JSONObject saved=null;
+                                    try{saved=deviceStore.load();}catch(Exception unavailable){if(code.isEmpty())throw unavailable;}
+                                    String discovered=data.optString("ownHost","");
+                                    if(code.isEmpty()&&saved!=null&&!discovered.isEmpty()) {
+                                        RemoteClient.privateAddress(discovered);
+                                        saved=new JSONObject(saved.toString()).put("host",discovered).put("port",data.getInt("ownPort"));
+                                    }
+                                    JSONObject profile=ownClient.connect(network,code,saved);
                                     deviceStore.save(profile);
                                 }catch(Exception error){ownClient.close();throw error;}
                             } else officialClient.connect(network,data.getString("host"));
