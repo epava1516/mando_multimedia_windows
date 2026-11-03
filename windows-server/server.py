@@ -15,6 +15,8 @@ import ssl
 import struct
 import threading
 import time
+import sys
+import subprocess
 
 from windows_input import WindowsInput, DryRunInput, KEYS, MODIFIERS
 from windows_clipboard import validate_text
@@ -333,6 +335,12 @@ def private_ipv4(value, dry_run=False):
 
 
 def main():
+    # Opening the installed backend directly must use the same tray interface as Inicio.
+    if os.name=='nt' and getattr(sys,'frozen',False) and len(sys.argv)==1:
+        tray=Path(sys.executable).with_name('MandoTray.exe')
+        if not tray.is_file():raise RuntimeError('Reinstala Mando: falta la interfaz de bandeja')
+        subprocess.Popen([str(tray)],close_fds=True)
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host')
     parser.add_argument('--port', type=int, default=PORT)

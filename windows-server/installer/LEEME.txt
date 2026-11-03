@@ -1,4 +1,4 @@
-MANDO SERVER — 0.5.0-alpha.10 (experimental)
+MANDO SERVER — 0.5.0-alpha.11 (experimental)
 
 El instalador incluye el servidor y configura bloqueo y gestos. No necesitas Python ni ejecutar comandos de PowerShell.
 
@@ -7,7 +7,7 @@ El instalador incluye el servidor y configura bloqueo y gestos. No necesitas Pyt
 3. La IP se detecta automaticamente. Si tienes varias redes, selecciona la Wi-Fi o Ethernet de casa en la ventana.
 4. En Android: Buscar en Wi-Fi → elige Mando propio → pega el codigo mando1 del PC → Conectar.
 
-Cerrar la ventana deja Mando funcionando en la bandeja del sistema. Doble clic en su icono abre el codigo; Salir detiene el servidor. El servidor no se inicia automaticamente al entrar en Windows; abre Mando desde Inicio. El servicio local de bloqueo si arranca automaticamente.
+Cerrar la ventana deja Mando funcionando en la bandeja del sistema. Doble clic en su icono abre el codigo; Salir detiene el servidor. Mando arranca automaticamente en la bandeja al iniciar tu sesion de Windows. Si la Wi-Fi tarda en conectarse, espera y reintenta automaticamente. El servicio local de bloqueo si arranca automaticamente.
 
 El instalador permite el servidor y la busqueda solo en redes privadas y desde la subred local. Configura tu Wi-Fi de casa como privada en Windows. No expone el servidor en redes publicas.
 

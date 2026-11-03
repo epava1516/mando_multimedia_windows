@@ -19,10 +19,29 @@ function Update-MandoFirewall([bool]$Install) {
         }
     }
 }
+function Update-MandoStartup([string]$Sid,[bool]$Install) {
+    if ($Sid -notmatch '^S-1-5-21-[0-9-]+$') { throw 'Cuenta de inicio automatico no valida.' }
+    $hive='Registry::HKEY_USERS\'+$Sid
+    if (-not (Test-Path -LiteralPath $hive)) { throw 'La cuenta de Windows debe tener la sesion iniciada para configurar Mando.' }
+    $key=$hive+'\Software\Microsoft\Windows\CurrentVersion\Run'
+    $expected='"'+(Join-Path $PSScriptRoot 'MandoTray.exe')+'" --background'
+    $entry=Get-ItemProperty -LiteralPath $key -Name MandoServer -ErrorAction SilentlyContinue
+    if ($entry -and $entry.MandoServer -ne $expected) { throw 'Existe otro inicio automatico llamado MandoServer. No se modificara.' }
+    if ($Install) {
+        New-Item -Path $key -Force | Out-Null
+        New-ItemProperty -LiteralPath $key -Name MandoServer -Value $expected -PropertyType String -Force | Out-Null
+    } elseif ($entry) {
+        Remove-ItemProperty -LiteralPath $key -Name MandoServer
+    }
+}
 try {
     if (Test-Path -LiteralPath $errorFile) { Remove-Item -LiteralPath $errorFile -Force }
     if (Test-Path -LiteralPath $root) {
         if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'Existe MandoDesktop sin una instalacion reconocida. No se modificara.' }
+        if ($Mode -eq 'Remove') {
+            $installed=Get-Content -LiteralPath $marker -Raw | ConvertFrom-Json
+            Update-MandoStartup $installed.userSid $false
+        }
         & (Join-Path $PSScriptRoot 'Desinstalar-MandoCompleto.ps1')
         [GC]::Collect(); [GC]::WaitForPendingFinalizers()
         for ($attempt=0; $attempt -lt 50; $attempt++) {
@@ -44,6 +63,7 @@ try {
         & (Join-Path $PSScriptRoot 'Instalar-MandoCompleto.ps1') -UserSid $sid
         if (-not (Test-Path -LiteralPath $marker)) { throw 'No se ha completado el componente de escritorio.' }
         Update-MandoFirewall $true
+        Update-MandoStartup $sid $true
     }
     exit 0
 } catch {

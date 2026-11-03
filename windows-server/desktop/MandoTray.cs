@@ -23,7 +23,7 @@ internal sealed class MandoTray : Form {
     readonly TextBox code=new TextBox();
     readonly Button refresh=new Button(),copy=new Button(),restart=new Button();
     readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();
-    readonly bool smoke;
+    readonly bool smoke,background;
     readonly string smokeDirectory;
     Process child;
     string activeHost;
@@ -51,10 +51,11 @@ internal sealed class MandoTray : Form {
         }
         return found;
     }
-    internal MandoTray(bool test) {
-        smoke=test;
+    internal MandoTray(bool test,bool hidden) {
+        smoke=test;background=hidden;
         if(smoke)smokeDirectory=Path.Combine(Path.GetTempPath(),"mando-tray-test-"+Guid.NewGuid().ToString("N"));
         Text="Mando Server";ClientSize=new Size(540,340);MinimumSize=new Size(500,370);
+        if(background){WindowState=FormWindowState.Minimized;ShowInTaskbar=false;}
         StartPosition=FormStartPosition.CenterScreen;Font=new Font("Segoe UI",10);Icon=SystemIcons.Application;
         var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(18),ColumnCount=1,RowCount=7};
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
@@ -84,11 +85,12 @@ internal sealed class MandoTray : Form {
             if(smoke)networks.Items.Add(new Address{IP="127.0.0.1",Name="Prueba aislada"});
             else foreach(var address in Addresses())networks.Items.Add(address);
             if(networks.Items.Count>0){networks.SelectedIndex=0;StartServer();}
-            else SetStatus("No encuentro una red local activa. Conecta Wi-Fi o Ethernet y vuelve a abrir Mando.");
+            else SetStatus("Esperando Wi-Fi o Ethernet. Mando iniciará el servidor automáticamente.");
+            if(background)Hide();
             timer.Interval=1000;timer.Tick+=Tick;timer.Start();
         };
     }
-    void ShowWindow(){Show();WindowState=FormWindowState.Normal;Activate();}
+    void ShowWindow(){ShowInTaskbar=true;Show();WindowState=FormWindowState.Normal;Activate();}
     void SetStatus(string value){status.Text=value;}
     void OnUI(Action action){if(!IsDisposed&&IsHandleCreated)try{BeginInvoke(action);}catch(InvalidOperationException){}}
     void StartServer() {
@@ -145,13 +147,22 @@ internal sealed class MandoTray : Form {
     void ExitServer(){exiting=true;Close();}
     void Tick(object sender,EventArgs e) {
         ticks++;
-        if(smoke){if(ready){Close();smokeResult=!Visible&&tray.Visible&&child!=null&&!child.HasExited?0:1;ExitServer();}else if(ticks>=15)ExitServer();return;}
+        if(smoke){if(ready){if(background&&Visible){ExitServer();return;}Close();smokeResult=!Visible&&tray.Visible&&child!=null&&!child.HasExited?0:1;ExitServer();}else if(ticks>=15)ExitServer();return;}
         if(child!=null&&child.HasExited){ready=false;copy.Enabled=false;refresh.Enabled=false;SetStatus(startupError.Length>0?startupError:"El servidor se ha cerrado. Comprueba el servicio de Mando y pulsa Reiniciar.");}
         else if(ready&&ticks%3==0)Send("STATUS");
         if(ready&&DateTime.UtcNow>=codeUntil)copy.Enabled=false;
+        if(ticks%5==0&&!ready&&!exiting) {
+            var available=Addresses();
+            if(available.Count>0) {
+                string previous=(networks.SelectedItem as Address)==null?null:((Address)networks.SelectedItem).IP;
+                networks.Items.Clear();foreach(var address in available)networks.Items.Add(address);
+                int selected=available.FindIndex(a=>a.IP==previous);networks.SelectedIndex=selected<0?0:selected;
+                StartServer();
+            }
+        }
     }
     [STAThread] static int Main(string[] args) {
-        bool smoke=args.Length==1&&args[0]=="--smoke-test";
+        bool smoke=args.Contains("--smoke-test"),background=args.Contains("--background");
         if(args.Length==1&&args[0]=="--self-test") {
             if(!Private("192.168.1.105")||!Private("10.8.0.2")||Private("8.8.8.8")||Private("127.0.0.1")||Private("not-ip"))return 1;
             if(!Pairing.IsMatch("mando1:192.168.1.105:1979:"+new string('a',64)+":12345678"))return 2;
@@ -163,9 +174,9 @@ internal sealed class MandoTray : Form {
         }
         bool created;
         using(var mutex=new Mutex(true,@"Local\Mando.Server.Tray."+WindowsIdentity.GetCurrent().User.Value,out created)) {
-            if(!created){if(!smoke)MessageBox.Show("Mando ya está abierto. Busca su icono en la bandeja del sistema.","Mando");return 0;}
+            if(!created){if(!smoke&&!background)MessageBox.Show("Mando ya está abierto. Busca su icono en la bandeja del sistema.","Mando");return 0;}
             try {
-                using(var form=new MandoTray(smoke)) {
+                using(var form=new MandoTray(smoke,background)) {
                     Application.Run(form);
                     if(smoke){File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"tray-smoke-status.txt"),form.smokeResult==0?"passed":form.status.Text);try{Directory.Delete(form.smokeDirectory,true);}catch(IOException){}return form.smokeResult;}
                 }

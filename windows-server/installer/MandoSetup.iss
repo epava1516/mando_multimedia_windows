@@ -4,8 +4,8 @@
 [Setup]
 AppId={{DF9BB8D5-33B6-45C9-95D7-AC12D3485D1D}
 AppName=Mando Server
-AppVersion=0.5.0-alpha.10
-VersionInfoVersion=0.5.0.10
+AppVersion=0.5.0-alpha.11
+VersionInfoVersion=0.5.0.11
 AppPublisher=Mando
 DefaultDirName={autopf}\Mando
 DefaultGroupName=Mando
@@ -16,7 +16,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 OutputDir=..\..\dist
-OutputBaseFilename=MandoSetup-0.5.0-alpha.10
+OutputBaseFilename=MandoSetup-0.5.0-alpha.11
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -67,5 +67,5 @@ begin
 end;
 procedure InitializeWizard();
 begin
-  WizardForm.FinishedLabel.Caption := 'Mando esta instalado. Abre Mando Server desde Inicio. Detecta la IP automaticamente y permanece en la bandeja. Cierra Remote Mouse antes de conectar. En Android busca Mando propio y pega el codigo que muestra el PC.';
+  WizardForm.FinishedLabel.Caption := 'Mando esta instalado. Abre Mando Server desde Inicio. Detecta la IP automaticamente, permanece en la bandeja y arrancara al iniciar tu sesion de Windows. Cierra Remote Mouse antes de conectar. En Android busca Mando propio y pega el codigo que muestra el PC.';
 end;
