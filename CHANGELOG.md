@@ -1,5 +1,12 @@
 # Historial
 
+## 0.5.0-alpha.13 — Mando Server fijo
+
+- Retira el selector de servidor y la entrada de IP del servidor oficial. La app solo conecta y recupera sesiones con Mando Server.
+- Buscar en Wi-Fi consulta únicamente el descubrimiento propio; conserva QR, autorización recordada y recuperación por cambio de IP.
+- Mantiene sensibilidad y preferencias guardadas. Regresión de controles, QR y recuperación correcta; APK compilada y firmada.
+
+
 ## 0.5.0-alpha.12 — QR y cambios de IP
 
 - QR local en Windows con IP, puerto, huella del servidor y PIN temporal. Lector QR integrado en Android sin guardar ni enviar imágenes.

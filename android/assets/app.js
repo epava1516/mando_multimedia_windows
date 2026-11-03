@@ -3,7 +3,6 @@ const $ = id => document.getElementById(id);
 let paired = false;
 let suspended = false;
 let uiGeneration = 0;
-let connectionMode = 'official';
 let ownDeviceSaved = false;
 let discoveredOwnEndpoint=null;
 let activeTab = 'touch';
@@ -75,8 +74,6 @@ window.mandoSuspended=()=>suspendSession('En pausa');
 window.mandoResuming=()=>suspendSession('Reconectando…');
 window.mandoSessionResult=result=>{
   if(result.resuming){window.mandoResuming();return;}
-  connectionMode=result.mode||connectionMode;
-  if(!result.paired&&result.mode&&$('server-mode').value!==result.mode){$('server-mode').value=result.mode;$('server-mode').dispatchEvent(new Event('change'));}
   setPaired(Boolean(result.paired));
   if(result.lockHelperInstalled!==undefined)window.mandoLockChanged(result.lockHelperInstalled);
   if(result.zoomHelperInstalled!==undefined)window.mandoZoomChanged(result.zoomHelperInstalled);
@@ -117,13 +114,10 @@ function renderServers() {
   for (const server of discoveredServers.slice(serverPage * size, (serverPage + 1) * size)) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'full';
-    button.textContent = server.host + (server.mode==='own'?' · Mando propio':' · Remote Mouse '+server.version) + (server.requiresPassword ? ' · clave' : '');
+    button.textContent = server.host + ' · Mando';
     button.addEventListener('click', () => {
-      $('server-mode').value=server.mode==='own'?'own':'official';
-      $('server-mode').dispatchEvent(new Event('change'));
-      $('pin').value=server.host;
-      discoveredOwnEndpoint=server.mode==='own'?{host:server.host,port:server.port}:null;
-      status(server.mode==='own'?(ownDeviceSaved?'PC encontrado. Pulsa Conectar; se comprobará su identidad guardada.':'Mando encontrado. Escanea su QR o pega el código del PC.'):'Seleccionado. Pulsa Conectar.');
+      discoveredOwnEndpoint={host:server.host,port:server.port};
+      status(ownDeviceSaved?'PC encontrado. Pulsa Conectar; se comprobará su identidad guardada.':'Mando encontrado. Escanea su QR o pega el código del PC.');
     });
     $('servers').appendChild(button);
   }
@@ -194,7 +188,7 @@ setInterval(() => {
 $('scan-qr').addEventListener('click',()=>api('/api/qr-scan',{}).catch(error=>status(error.message,true)));
 window.mandoQrScanned=value=>{
   selectTab('touch');
-  $('server-mode').value='own';$('server-mode').dispatchEvent(new Event('change'));
+  discoveredOwnEndpoint=null;
   $('own-code').value=value;
   status('QR leído. Pulsa Conectar para autorizar este PC.');
 };
@@ -202,10 +196,10 @@ $('scan').addEventListener('click', async () => {
   $('scan').disabled = true; $('pair-button').disabled = true;
   $('servers').replaceChildren();
   $('server-pages').hidden = true;
-  status('Buscando Mando y Remote Mouse en la red Wi-Fi…');
+  status('Buscando tu PC con Mando en la red Wi-Fi…');
   try {
     const result = await api('/api/scan', {});
-    discoveredServers = result.servers; serverPage = 0; renderServers();
+    discoveredServers = result.servers.filter(server=>server.mode==='own'); serverPage = 0; renderServers();
     status(result.servers.length ? 'Selecciona tu PC y pulsa Conectar.' : 'No se han encontrado servidores en este segmento. Comprueba que Remote Mouse está abierto o introduce la IP.');
   } catch (error) {status(error.message, true);}
   finally {$('scan').disabled = false; $('pair-button').disabled = false;}
@@ -244,40 +238,29 @@ function setOwnDeviceSaved(saved) {
   ownDeviceSaved = Boolean(saved);
   $('forget-own').hidden = !ownDeviceSaved;
   document.querySelector('.settings-tools').classList.toggle('saved-own',ownDeviceSaved);
-  $('own-code').required = $('server-mode').value === 'own' && !ownDeviceSaved;
+  $('own-code').required = !ownDeviceSaved;
   $('own-code').placeholder = ownDeviceSaved ? 'Guardado · código opcional para otro PC' : 'Código mando1 del PC';
 }
 $('forget-own').addEventListener('click',async () => {
   try {
     await api('/api/own-forget',{});setOwnDeviceSaved(false);
-    if(connectionMode === 'own')setPaired(false);
+    setPaired(false);
     status('Dispositivo olvidado en este móvil. REVOKE en Windows revoca los dispositivos autorizados.');
   }catch(error){status(error.message,true);}
-});
-$('server-mode').addEventListener('change', () => {
-  discoveredOwnEndpoint=null;
-  const own = $('server-mode').value === 'own';
-  $('pin').hidden = own; $('pin').disabled = own;
-  $('own-code').hidden = !own; $('own-code').disabled = !own; $('own-code').required = own && !ownDeviceSaved;
-  $('pair-label').textContent = own ? 'Código que muestra Mando en Windows' : 'IP del ordenador';
-  $('pair-label').htmlFor = own ? 'own-code' : 'pin';
-  $('scan').hidden = false;
-  $('servers').replaceChildren();$('server-pages').hidden = true;
 });
 $('pair-form').addEventListener('submit', async event => {
   event.preventDefault();
   $('pair-button').disabled = true;
   try {
-    const mode = $('server-mode').value;
-    const connection = await api('/api/pair', {mode, host: $('pin').value.trim(), code:$('own-code').value.trim(), ownHost:discoveredOwnEndpoint?.host, ownPort:discoveredOwnEndpoint?.port});
-    connectionMode = connection.mode || mode;
-    if (connectionMode === 'own') setOwnDeviceSaved(true);
+    const mode = 'own';
+    const connection = await api('/api/pair', {mode, code:$('own-code').value.trim(), ownHost:discoveredOwnEndpoint?.host, ownPort:discoveredOwnEndpoint?.port});
+    setOwnDeviceSaved(true);
     $('own-code').value = '';
     window.mandoLockChanged(connection.lockHelperInstalled || connection.directLock || false);
     window.mandoZoomChanged(connection.zoomHelperInstalled || false);
 
     setPaired(true);
-    status(connection.dryRun ? 'SIMULACIÓN: no se controla ningún ordenador.' : 'Conectado por Wi-Fi a ' + connection.version + (connectionMode === 'own' ? (connection.secureDesktop ? '. TLS y componente de pantalla bloqueada disponible.' : '. TLS; instala el componente completo para pantalla bloqueada.') : '. Los controles ya están disponibles.'));
+    status(connection.dryRun ? 'SIMULACIÓN: no se controla ningún ordenador.' : 'Conectado a Mando por Wi-Fi. ' + (connection.secureDesktop ? 'Componente de pantalla bloqueada disponible.' : 'Bloqueo pendiente: consulta Diagnóstico en Windows.'));
   } catch (error) {status(error.message, true);}
   finally {$('pair-button').disabled = false;}
 });
@@ -294,7 +277,7 @@ function selectTab(tab) {
   $('pairing').hidden = paired || suspended || tab !== 'touch';
   $('touch').hidden = !paired || tab !== 'touch';
   $('restoring').hidden = !suspended || tab !== 'touch';
-  $('connection-help').textContent = tab === 'ir' ? 'LGTV1 · Infrarrojos' : connectionMode === 'own' ? 'Mando propio · TLS' : 'Servidor oficial · Wi-Fi';
+  $('connection-help').textContent = tab === 'ir' ? 'LGTV1 · Infrarrojos' : 'Mando · TLS';
   if (tab === 'keyboard') openAndroidKeyboard();
   else api('/api/keyboard', {visible: false}).catch(() => {});
 }
@@ -523,7 +506,7 @@ pad.addEventListener('pointermove', event => {
         }
       }
     } else {
-      const wheelDistance = connectionMode === 'official' ? 4 : 20;
+      const wheelDistance = 20;
       const steps = Math.max(-10, Math.min(10, Math.trunc((scrollAnchor - geometry.y) / wheelDistance)));
       if (steps) {
         scrollAnchor -= steps * wheelDistance;
@@ -532,7 +515,7 @@ pad.addEventListener('pointermove', event => {
     }
   } else if(!multi && edgeAxis) {
     const position=edgeAxis==='horizontal'?event.clientX:event.clientY;
-    const wheelDistance=connectionMode==='official'?4:20;
+    const wheelDistance=20;
     const steps=Math.max(-10,Math.min(10,Math.trunc((position-edgeAnchor)/wheelDistance)));
     if(steps){
       edgeAnchor+=steps*wheelDistance;
@@ -553,7 +536,7 @@ function endPointer(event) {
 ['pointerup','pointercancel','lostpointercapture'].forEach(name => pad.addEventListener(name, endPointer));
 document.addEventListener('visibilitychange', () => {pointers.clear();pad.classList.remove('edge-active-y','edge-active-x'); dx = dy = 0; resetModifiers();});
 api('/api/status').then(result => {
-  connectionMode = result.mode || 'official';
+
   window.mandoSessionResult(result);
   window.mandoImeChanged(result.imeVisible || false);
   if (result.dryRun) status('SIMULACIÓN: puedes probar la interfaz; no se controla ningún ordenador.');

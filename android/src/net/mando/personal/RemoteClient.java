@@ -279,29 +279,6 @@ final class RemoteClient implements InputClient {
         if(prefix>30) throw new IOException("Red punto a punto: introduce la IP manualmente");
         int localInt=((local[0]&255)<<24)|((local[1]&255)<<16)|((local[2]&255)<<8)|(local[3]&255);
         int mask=-1<<(32-prefix), base=localInt&mask, count=1<<(32-prefix);
-        final List<JSONObject> found=Collections.synchronizedList(new ArrayList<JSONObject>());
-        ExecutorService probes=Executors.newFixedThreadPool(16);
-        List<Future<?>> futures=new ArrayList<>();
-        Future<JSONArray> ownProbe=probes.submit(() -> discoverOwn(network,base,count,localInt));
-        try {
-            for(int host=1;host<count-1;host++) {
-                int value=base+host;if(value==localInt)continue;
-                final byte[] ip={(byte)(value>>>24),(byte)(value>>>16),(byte)(value>>>8),(byte)value};
-                InetAddress address=InetAddress.getByAddress(ip);
-                try {privateAddress(address.getHostAddress());}catch(IOException skip){continue;}
-                futures.add(probes.submit(() -> {
-                    try(Socket s=new Socket()) {
-                        network.bindSocket(s);s.setSoTimeout(600);
-                        s.connect(new InetSocketAddress(address,PORT),350);
-                        JSONObject greeting=readHandshake(s);
-                        found.add(new JSONObject().put("host",address.getHostAddress()).put("version",greeting.getInt("version"))
-                                .put("requiresPassword",!"nop".equals(greeting.getString("auth"))));
-                    }catch(Exception ignored){ }
-                }));
-            }
-            for(Future<?> probe:futures) probe.get(3,TimeUnit.SECONDS);
-            try{JSONArray ownFound=ownProbe.get(4,TimeUnit.SECONDS);for(int i=0;i<ownFound.length();i++)found.add(0,ownFound.getJSONObject(i));}catch(Exception unavailable){ }
-        } finally {probes.shutdownNow();}
-        return new JSONArray(found);
+        return discoverOwn(network,base,count,localInt);
     }
 }

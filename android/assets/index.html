@@ -16,12 +16,11 @@
   <section id="restoring" class="panel card restoring" role="status"><strong>Recuperando conexión…</strong></section>
   <section id="pairing" class="panel card pairing" hidden>
     <h1>Conectar al PC</h1>
-    <label class="server-mode-label" for="server-mode">Servidor<select id="server-mode"><option value="official">Remote Mouse (oficial)</option><option value="own">Mando propio (experimental)</option></select></label>
-    <form id="pair-form"><label for="pin" id="pair-label">IP del ordenador</label><div class="pair-row"><input id="pin" name="pin" type="text" inputmode="decimal" maxlength="15" autocomplete="off" required value="192.168.1.105"><input id="own-code" type="password" autocomplete="off" maxlength="140" placeholder="Código mando1 del PC" aria-label="Código de emparejamiento del servidor propio" disabled hidden><button class="primary" id="pair-button">Conectar</button></div></form>
+    <form id="pair-form"><label for="own-code" id="pair-label">Código del PC · también puedes usar el QR</label><div class="pair-row"><input id="own-code" type="password" autocomplete="off" maxlength="140" placeholder="Código mando1 del PC" aria-label="Código de emparejamiento del PC" required><button class="primary" id="pair-button">Conectar</button></div></form>
     <div class="pair-actions"><button type="button" id="scan" class="full">Buscar en Wi-Fi</button><button type="button" id="scan-qr" class="full">Escanear QR del PC</button></div>
     <div id="servers" class="servers" aria-live="polite"></div>
     <div id="server-pages" class="server-pages" hidden><button id="server-prev" aria-label="Servidores anteriores">←</button><span id="server-page-label"></span><button id="server-next" aria-label="Más servidores">→</button></div>
-    <p class="privacy-note">El vault sigue desactivado. No envíes contraseñas por este canal.</p>
+    <p class="privacy-note">Escanea el QR una vez. El PC queda recordado para las siguientes conexiones.</p>
   </section>
 
     <section id="touch" class="panel card" hidden>

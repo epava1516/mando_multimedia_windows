@@ -65,7 +65,7 @@ const server = http.createServer((request, response) => {
     await page.mouse.up();
     const pausedCount=(await actions()).length;await page.waitForTimeout(350);
     assert.equal((await actions()).length,pausedCount,'pause must stop a held volume');
-    await page.evaluate(()=>window.mandoSessionResult({paired:true,mode:'official'}));
+    await page.evaluate(()=>window.mandoSessionResult({paired:true,mode:'own'}));
     await page.locator('[data-tab=ir]').click();
     const irVolume=page.locator('[data-ir=VOLUME_DOWN]');
     const irBounds=await irVolume.boundingBox();
@@ -109,10 +109,10 @@ const server = http.createServer((request, response) => {
       await reset();
       const x=horizontal?cx:edgeX, y=horizontal?edgeY:cy;
       await send('touchStart',[point(1,x,y)]);
-      await send('touchMove',[point(1,x+(horizontal?4:0),y+(horizontal?0:4))]);
+      await send('touchMove',[point(1,x+(horizontal?20:0),y+(horizontal?0:20))]);
       await finish();
       const fine=await actions();
-      assert.deepEqual(fine,[{type:horizontal?'scroll_horizontal':'scroll',steps:1}], '4px edge motion must send one fine sample');
+      assert.deepEqual(fine,[{type:horizontal?'scroll_horizontal':'scroll',steps:1}], '20px own-server edge motion must send one wheel step');
     }
     await reset();
     await send('touchStart',[point(1,edgeX,cy)]);
@@ -175,10 +175,9 @@ const server = http.createServer((request, response) => {
     await page.locator('[data-tab=touch]').click();
     await page.locator('#scan').click();
     await page.locator('#servers button').first().click();
-    assert.equal(await page.locator('#server-mode').inputValue(),'own','discovered Mando must select own mode');
+    assert.equal(await page.locator('#server-mode').count(),0,'no server selector remains');
     assert.equal(await page.locator('#own-code').inputValue(),'','discovery must not provide pairing secrets');
     assert(await page.locator('#scan').isVisible(),'own mode must support local discovery without skipping pairing');
-    assert(await page.locator('#pin').isDisabled(),'hidden official host must not block own pairing');
     const code='mando1:192.168.1.10:1979:'+('a'.repeat(64))+':12345678';
     await page.locator('#scan-qr').click();
     await page.waitForTimeout(60);
@@ -212,7 +211,7 @@ const server = http.createServer((request, response) => {
     assert.equal(await page.locator('#connection').textContent(),'PC vinculado');
     await page.evaluate(()=>{window.mandoSuspended();window.mandoResuming();window.mandoSessionResult({paired:false,failed:true,error:'PC apagado'});});
     assert(await page.locator('#pairing').isVisible(),'show connection form after actual failure');
-    await page.evaluate(()=>window.mandoSessionResult({paired:true,mode:'official'}));
+    await page.evaluate(()=>window.mandoSessionResult({paired:true,mode:'own'}));
     // Leave one native action pending and a second queued, then suspend and recover.
     await page.evaluate(()=>{
       const original=window.MandoNative.request;
@@ -223,7 +222,7 @@ const server = http.createServer((request, response) => {
     });
     await page.waitForFunction(()=>window.heldActions.length===1);
     await page.evaluate(()=>{
-      window.mandoSuspended();window.mandoResuming();window.mandoSessionResult({paired:true,mode:'official',recovered:true});
+      window.mandoSuspended();window.mandoResuming();window.mandoSessionResult({paired:true,mode:'own',recovered:true});
       window.nativeReply(window.heldActions[0],{error:'Old socket closed'});
     });
     await page.waitForTimeout(100);

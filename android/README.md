@@ -103,3 +103,7 @@ Buscar en Wi-Fi localiza Mando propio y Remote Mouse. Elegir Mando propio solici
 Pulsa Escanear QR del PC sin necesidad de buscar antes en Wi-Fi. Concede cámara solo cuando lo solicite, apunta al QR de Mando Server y pulsa Conectar. El QR completa dirección, puerto e identidad del PC; no abre URLs ni ejecuta contenido. No se guardan fotos ni se envían imágenes.
 
 La autorización queda en Keystore. Para el mismo PC con otra IP, Buscar en Wi-Fi → elige el PC → Conectar conserva la identidad y reutiliza el vínculo; también puedes escanear el QR actualizado sin crear dispositivos duplicados. El permiso de cámara es opcional: se conserva la entrada manual.
+
+## Servidor único (alpha.13)
+
+La app utiliza siempre Mando Server. Se ha retirado el selector y la búsqueda del oficial; los vínculos guardados, QR, ajustes y recuperación se conservan.

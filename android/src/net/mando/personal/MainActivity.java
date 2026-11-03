@@ -48,9 +48,9 @@ public final class MainActivity extends Activity {
     private LinearLayout keyboardRow;
     private final LinkedHashSet<String> imeModifiers=new LinkedHashSet<>();
     private final Map<String,Button> imeModifierButtons=new LinkedHashMap<>();
-    private final RemoteClient officialClient = new RemoteClient();
+    private final RemoteClient discoveryClient = new RemoteClient();
     private final OwnClient ownClient = new OwnClient();
-    private volatile InputClient client = officialClient;
+    private final InputClient client = ownClient;
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<Runnable>(32));
     private volatile boolean destroyed;
@@ -67,7 +67,6 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         infrared = new InfraredController(this);
         deviceStore = new DeviceStore(this);
-        if("own".equals(getPreferences(MODE_PRIVATE).getString("lastServerMode","official")))client=ownClient;
         restoreResumeCheckpoint();
         if(Build.VERSION.SDK_INT>=30)getWindow().setDecorFitsSystemWindows(false);
         LinearLayout root=new LinearLayout(this);
@@ -278,12 +277,12 @@ public final class MainActivity extends Activity {
             worker.execute(()->{
                 try {
                     if(!foreground||resuming||!resume.current(stamp)||client!=target||android.os.SystemClock.elapsedRealtime()-requested>5000)return;
-                    String result=target==ownClient?ownClient.clipboard(text):officialClient.clipboard(text);
+                    String result=ownClient.clipboard(text);
                     final String received=toPc?null:boundedClipboard(result);
                     runOnUiThread(()->{
                         if(!foreground||!resume.current(stamp)||client!=target)return;
                         if(!toPc)clipboard.setPrimaryClip(ClipData.newPlainText("Mando",received));
-                        Toast.makeText(this,toPc?(target==officialClient?"Texto enviado al portapapeles del PC":"Texto copiado al portapapeles del PC"):"Texto copiado al portapapeles del móvil",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this,toPc?"Texto copiado al portapapeles del PC":"Texto copiado al portapapeles del móvil",Toast.LENGTH_SHORT).show();
                     });
                 } catch(Exception error) {
                     final String reason=clipboardError(error);
@@ -478,12 +477,11 @@ public final class MainActivity extends Activity {
                         } else if ("/api/pair".equals(path)) {
                             if (data == null) throw new IOException("Falta la dirección del PC");
                             if(!foreground||!resume.current(stamp))throw new IOException("Abre Mando para conectar");
-                            officialClient.close();ownClient.close();
-                            String mode=data.optString("mode","official");
-                            if(!"own".equals(mode) && !"official".equals(mode))throw new IOException("Tipo de servidor inválido");
-                            boolean own="own".equals(mode);
+                            ownClient.close();
+                            String mode="own";
+                            if(!"own".equals(data.optString("mode","own")))throw new IOException("Esta versión utiliza Mando Server");
                             Network network=wifi();
-                            if(own) {
+                            {
                                 try {
                                     String code=data.optString("code","");
                                     JSONObject saved=null;
@@ -496,22 +494,21 @@ public final class MainActivity extends Activity {
                                     JSONObject profile=ownClient.connect(network,code,saved);
                                     deviceStore.save(profile);
                                 }catch(Exception error){ownClient.close();throw error;}
-                            } else officialClient.connect(network,data.getString("host"));
-                            if(!resume.connected(stamp,new ResumeWindow.Target(mode,own?"":data.getString("host")))) {
-                                officialClient.close();ownClient.close();throw new IOException("Conexión cancelada");
                             }
-                            client=own ? ownClient : officialClient;
+                            if(!resume.connected(stamp,new ResumeWindow.Target("own",""))) {
+                                ownClient.close();throw new IOException("Conexión cancelada");
+                            }
                             getPreferences(MODE_PRIVATE).edit().putString("lastServerMode",mode).apply();
-                            result.put("ok", true).put("mode",own ? "own" : "official");
-                            result.put("version", own ? "Mando v1 TLS" : String.valueOf(officialClient.serverVersion()));
-                            result.put("directLock",own).put("dryRun",own && ownClient.isDryRun());
-                            result.put("secureDesktop",own && ownClient.supportsSecureDesktop());
-                            result.put("lockHelperInstalled",own || getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false));
-                            result.put("zoomHelperInstalled",own ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
+                            result.put("ok", true).put("mode","own");
+                            result.put("version", "Mando v1 TLS");
+                            result.put("directLock",true).put("dryRun",ownClient.isDryRun());
+                            result.put("secureDesktop",ownClient.supportsSecureDesktop());
+                            result.put("lockHelperInstalled",true);
+                            result.put("zoomHelperInstalled",ownClient.supportsZoom());
                         } else if ("/api/scan".equals(path)) {
                             ConnectivityManager manager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
                             Network network=wifi();
-                            result.put("servers",officialClient.scan(network,manager.getLinkProperties(network)));
+                            result.put("servers",discoveryClient.scan(network,manager.getLinkProperties(network)));
                         } else if ("/api/logout".equals(path)) {
                             client.close(); result.put("ok", true);
                         } else if ("/api/action".equals(path)) {
@@ -554,7 +551,7 @@ public final class MainActivity extends Activity {
         String mode=prefs.getString("resumeMode","");
         long paused=prefs.getLong("resumePaused",-1),now=android.os.SystemClock.elapsedRealtime();
         if(paused<0 || now<paused || now-paused>=ResumeWindow.TTL_MS)return;
-        if(!"own".equals(mode)&&!"official".equals(mode))return;
+        if(!"own".equals(mode))return;
         resume.restore(new ResumeWindow.Target(mode,prefs.getString("resumeHost","")),paused);
     }
     private void saveResumeCheckpoint(){saveResumeCheckpoint(false);}
@@ -568,11 +565,11 @@ public final class MainActivity extends Activity {
     }
     private void cancelResume() {
         synchronized(resumeStoreLock){resume.clear();resuming=false;saveResumeCheckpoint(true);}
-        officialClient.close();ownClient.close();
+        ownClient.close();
     }
     private JSONObject sessionState()throws Exception {
         return new JSONObject().put("paired",client.isConnected()).put("resuming",resuming)
-            .put("mode",client==ownClient?"own":"official").put("dryRun",client==ownClient&&ownClient.isDryRun())
+            .put("mode","own").put("dryRun",client==ownClient&&ownClient.isDryRun())
             .put("lockHelperInstalled",client==ownClient||getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false))
             .put("zoomHelperInstalled",client==ownClient?ownClient.supportsZoom():getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
     }
@@ -584,17 +581,17 @@ public final class MainActivity extends Activity {
         try {
             if(!resume.current(ticket.generation))return;
             Network network=wifi();
-            boolean own="own".equals(ticket.target.mode);
-            if(own) {
+            if(!"own".equals(ticket.target.mode))throw new IOException("Vuelve a conectar con Mando Server");
+            {
                 JSONObject saved=deviceStore.load();
                 if(saved==null)throw new IOException("Vuelve a emparejar el servidor propio");
                 ownClient.connect(network,"",saved);
-            } else officialClient.connect(network,ticket.target.host);
-            if(!resume.connected(ticket.generation,ticket.target)){officialClient.close();ownClient.close();return;}
-            client=own?ownClient:officialClient;resuming=false;
+            }
+            if(!resume.connected(ticket.generation,ticket.target)){ownClient.close();return;}
+            resuming=false;
             publishSession(sessionState().put("recovered",true),ticket.generation);
         } catch(Exception error) {
-            officialClient.close();ownClient.close();
+            ownClient.close();
             if(resume.current(ticket.generation)) {
                 resuming=false;
                 try {publishSession(sessionState().put("failed",true).put("error",safeMessage(error)),ticket.generation);}catch(Exception ignored){ }
@@ -629,13 +626,13 @@ public final class MainActivity extends Activity {
         synchronized(resumeStoreLock){resume.pause(android.os.SystemClock.elapsedRealtime(),client.isConnected());saveResumeCheckpoint();}
         resuming=false;
         super.onStop();editor.discard();resetImeModifiers();showKeyboard(false);
-        officialClient.close();ownClient.close();
+        ownClient.close();
         if(web!=null)web.evaluateJavascript("window.mandoSuspended && window.mandoSuspended()",null);
     }
 
     @Override protected void onDestroy() {
         destroyed = true;resume.clear();
-        officialClient.close();ownClient.close(); worker.shutdownNow();
+        ownClient.close(); worker.shutdownNow();
         if (web != null) { web.removeJavascriptInterface("MandoNative"); web.destroy(); }
         super.onDestroy();
     }
