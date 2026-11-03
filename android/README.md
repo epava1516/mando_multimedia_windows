@@ -1,4 +1,4 @@
-# Mando Android · experimental 0.5.0-alpha.3
+# Mando Android · experimental 0.5.0-alpha.4
 
 APK propio, paquete `net.mando.personal`, nombre **Mando**. No sustituye ni modifica Remote Mouse. Requiere Android 9 o posterior y el servidor oficial de Windows 5.30 o posterior con TCP y UDP 1978 accesibles.
 
@@ -79,3 +79,11 @@ El paquete Windows integra bloqueo, zoom y un broker local restringido para Winl
 El plazo se cuenta desde la última salida con una conexión activa, con reloj monotónico. Un intento interrumpido o fallido no renueva el plazo. Los metadatos no secretos del destino se conservan de forma privada, asociados al contador de arranques del móvil; un reinicio invalida el plazo. La autorización del servidor propio sigue en Android Keystore.
 
 Durante la recuperación se mantiene la vista anterior y se deshabilita la entrada al PC. Si la actividad se recrea, muestra Recuperando conexión hasta conocer el resultado. Solo un fallo real o caducidad muestra la pantalla de conexión. No hay sockets ni comandos activos en segundo plano, ni reenvío de pulsaciones o gestos pendientes. Desconectar interrumpe un intento en curso y elimina el destino de recuperación. IR sigue siendo independiente.
+
+## Bordes de desplazamiento (0.5.0-alpha.4)
+
+Arrastra un dedo por el borde derecho para rueda vertical: hacia abajo baja la página. El borde inferior desplaza horizontalmente a derecha/izquierda. El eje se elige al iniciar el contacto y se conserva aunque el dedo salga del borde; tocarlo sin arrastrar no genera clics. Las zonas de 44px están dentro del touchpad, sin añadir filas ni scroll a la pantalla.
+
+El scroll de dos dedos en el centro mantiene el movimiento natural del contenido. Se espera a que ambos dedos se muevan para evitar interpretar actualizaciones desfasadas como un pellizco. Un gesto iniciado en un borde no se mezcla con zoom ni movimiento del cursor.
+
+El servidor oficial tiene rueda horizontal nativa (`w 2`/`w 3`), por lo que no se deja Shift pulsado entre datagramas. Se compensa su muestra de rueda nula tras reposo y se agrupan muestras de alta resolución; no se reintentan comandos tras errores. La magnitud sigue dependiendo de su ajuste de scroll. Evidencia en `../evidence/HORIZONTAL_SCROLL.md`. Para el servidor propio actualiza también el paquete Windows; con uno antiguo la app avisa y conserva la conexión.

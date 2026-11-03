@@ -1,5 +1,13 @@
 # Historial
 
+## 0.5.0-alpha.4 — bordes de rueda
+
+- Borde derecho para rueda vertical y borde inferior para horizontal, con un dedo y sin clics ni movimiento del cursor.
+- Espera movimiento de ambos dedos antes de distinguir scroll y pellizco; corrige la clasificación prematura de eventos separados.
+- Normaliza los pasos del servidor oficial 531: muestra inicial tras reposo y muestras de rueda de alta resolución para un paso visible.
+- Rueda horizontal nativa sin modificadores mantenidos y soporte equivalente en el servidor propio/broker.
+- Conserva la recuperación automática de 20 minutos. El modo propio requiere el paquete de servidor actualizado para horizontal.
+
 ## 0.5.0-alpha.3 — recuperación de sesión
 
 - Recupera automáticamente el último servidor si vuelves antes de 20 minutos, con la vista anterior mientras conecta.

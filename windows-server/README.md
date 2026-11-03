@@ -1,4 +1,4 @@
-# Servidor propio completo — experimental 0.5.0-alpha.2
+# Servidor propio completo — experimental 0.5.0-alpha.4
 
 Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
 
@@ -24,7 +24,7 @@ El servicio local arranca con Windows, pero el servidor de red se ejecuta en la 
 
 ## Controles incluidos
 
-- Ratón, clics, scroll, Unicode, teclas extendidas, multimedia y volumen de Windows.
+- Ratón, clics, scroll vertical/horizontal nativo, Unicode, teclas extendidas, multimedia y volumen de Windows.
 - Dos dedos paralelos: scroll. Pellizco: zoom visual alrededor del cursor en Firefox con nuestro componente integrado. Tres dedos arriba: Vista de tareas.
 - Bloqueo directo mediante LockWorkStation. Cuando la sesión está bloqueada, el broker restringido atiende ratón, clics, scroll, texto y teclas en Winlogon; no ejecuta gestos de ventanas/zoom allí.
 - IR sigue funcionando localmente en el móvil y puede ocultarse desde Ajustes.
@@ -77,3 +77,5 @@ python3 -m venv .venv
 En Linux la identidad de pruebas queda en `.state/`; en Windows usa LocalAppData. La capacidad dry_run impide cualquier entrada y lo indica al cliente. La APK admite solo IP privadas; para conectar la app a una simulación usa la IP LAN del host.
 
 El workflow Windows compila ambos componentes, prueba el instalador y la identidad IPC sin enviar input, construye MandoServer.exe y prueba su TLS en modo simulado. [Contrato](PROTOCOL.md). Antes de sustituir el oficial faltan las pruebas físicas de la [matriz](TEST-MATRIX.md), descubrimiento propio, renovación de certificado y experiencia de inicio automático del proceso de red.
+
+La APK alpha.4 y este paquete añaden los bordes de rueda. Para actualizar el componente de escritorio ya instalado, ejecuta su desinstalador y vuelve a ejecutar Instalar-MandoCompleto.ps1; la identidad TLS y las autorizaciones de LocalAppData se conservan.

@@ -21,3 +21,7 @@ Exact whole UTF8 frames for existing raw legacy UDP transport (one frame per dat
 The header has two spaces before `3`: three-byte prefix `mos`, three-byte decimal length `  3`, then three-byte body. No newline or terminator. No guessed modifier syntax, concatenated frames, synthetic held Shift, or persistent key state is needed.
 
 Magnitude is controlled by server state: IL980–1023 updates the previous wheel timestamp; IL1024 initializes magnitude to0; IL1027–1087 assigns `2 * scrollSetting` for elapsed time below0.08 seconds (the subsequent0.05/0.02 branches assign the same expression, not accumulated multiplication). Default scrollSetting is4 (`A.I..cctor`, token0x060000c6, IL7–8). Therefore first/isolated events after >=80ms can produce zero movement; subsequent genuine drag samples faster than80ms get magnitude8 by default. Do not reinterpret each packet as a fixed120 tick or claim per-packet confirmation. Runtime application support/delivery remains to be tested.
+
+## Independent client integration
+
+The app maps positive vertical steps to down (w0) and positive horizontal steps to right (w2). A logical default wheel step uses fifteen magnitude8 samples; after an idle interval a seed sample accounts for the server's zero-magnitude first event. These are deliberate high-resolution input samples, never retries after packet/error/timeout. The server scroll setting still scales the effective magnitude. No physical response was observed by this static analysis.
