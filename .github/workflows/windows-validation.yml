@@ -26,7 +26,7 @@ jobs:
       - name: Parse installer scripts
         shell: powershell
         run: |
-          Get-ChildItem windows-server/*.ps1 | ForEach-Object {
+          Get-ChildItem windows-server -Recurse -Filter *.ps1 | ForEach-Object {
             $tokens = $null; $errors = $null
             [Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors) | Out-Null
             if ($errors) { throw ($errors | Out-String) }
@@ -61,11 +61,37 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Standalone server build failed' }
           python windows-server/tests/test_frozen_server.py dist/MandoServer.exe
           if ($LASTEXITCODE -ne 0) { throw 'Standalone TLS smoke test failed' }
+      - name: Build and verify Windows installer
+        shell: powershell
+        run: |
+          $compilerSetup = Join-Path $pwd 'build/innosetup-6.7.4.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe' -OutFile $compilerSetup
+          $signature = Get-AuthenticodeSignature -FilePath $compilerSetup
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike '*Pyrsys B.V.*') { throw 'Inno Setup signature verification failed' }
+          $compilerDir = Join-Path $pwd 'build/inno'
+          $tool = Start-Process -FilePath $compilerSetup -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',('/DIR="'+$compilerDir+'"')) -Wait -PassThru
+          if ($tool.ExitCode -ne 0) { throw 'Compiler setup failed' }
+          $payload = Join-Path $pwd 'build/installer-payload'
+          New-Item -ItemType Directory -Force -Path "$payload/desktop","$payload/windows-zoom" | Out-Null
+          Copy-Item dist/MandoServer.exe,windows-server/Instalar-MandoCompleto.ps1,windows-server/Desinstalar-MandoCompleto.ps1,windows-server/installer/Configure-Mando.ps1,windows-server/installer/LEEME.txt $payload
+          Copy-Item windows-server/desktop/MandoDesktopBroker.cs "$payload/desktop/"
+          Copy-Item windows-zoom/MandoTouchZoom.cs "$payload/windows-zoom/"
+          & "$compilerDir/ISCC.exe" ("/DPayloadDir="+$payload) windows-server/installer/MandoSetup.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compile failed' }
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.9.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw 'Installer failed' }
+          if ((Get-Service MandoDesktopBroker).Status -ne 'Running') { throw 'Installed service is not running' }
+          if (-not (Test-Path "$env:ProgramFiles/Mando/MandoServer.exe")) { throw 'Network server not installed' }
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.9.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw 'Installer upgrade failed' }
+          $remove = Start-Process -FilePath "$env:ProgramFiles/Mando/unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($remove.ExitCode -ne 0 -or (Get-Service MandoDesktopBroker -ErrorAction SilentlyContinue)) { throw 'Installer uninstall failed' }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: mando-windows-executables
           path: |
             dist/MandoServer.exe
+            dist/MandoSetup-0.5.0-alpha.9.exe
             build/MandoDesktopBroker.exe
             build/MandoTouchZoom.exe
           retention-days: 7
