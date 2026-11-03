@@ -68,6 +68,8 @@ jobs:
           if ($tray.ExitCode -ne 0) { Get-Content dist/tray-smoke-status.txt; throw 'Background tray smoke test failed' }
           python windows-server/tests/test_frozen_server.py dist/MandoServer.exe
           if ($LASTEXITCODE -ne 0) { throw 'Standalone TLS smoke test failed' }
+          python windows-server/tests/test_frozen_server.py dist/MandoServer.exe --real-no-input
+          if ($LASTEXITCODE -ne 0) { throw 'Normal server without broker smoke test failed' }
       - name: Build and verify Windows installer
         shell: powershell
         run: |
