@@ -241,6 +241,33 @@ final class RemoteClient implements InputClient {
         sendCommand(Protocol.frame("key",payload.toString()));
     }
 
+    private JSONArray discoverOwn(Network network,int base,int count,int localInt) throws Exception {
+        JSONArray found=new JSONArray();Set<String> seen=new HashSet<>();
+        String nonce=java.util.UUID.randomUUID().toString().replace("-","");
+        byte[] request=("MANDO_DISCOVER_V1 "+nonce).getBytes(StandardCharsets.US_ASCII);
+        try(DatagramSocket probe=new DatagramSocket(null)) {
+            network.bindSocket(probe);probe.bind(new InetSocketAddress(0));probe.setSoTimeout(200);probe.setBroadcast(true);
+            for(int index=1;index<count;index++) {
+                int value=base+index;if(value==localInt)continue;
+                InetAddress destination=InetAddress.getByAddress(new byte[]{(byte)(value>>>24),(byte)(value>>>16),(byte)(value>>>8),(byte)value});
+                probe.send(new DatagramPacket(request,request.length,destination,1980));
+            }
+            long until=android.os.SystemClock.elapsedRealtime()+2200;
+            for(int received=0;received<64&&found.length()<16&&android.os.SystemClock.elapsedRealtime()<until;) {
+                DatagramPacket reply=new DatagramPacket(new byte[128],128);
+                try{probe.receive(reply);}catch(java.net.SocketTimeoutException wait){continue;}
+                received++;
+                String value=new String(reply.getData(),0,reply.getLength(),StandardCharsets.US_ASCII);
+                if(!value.matches("MANDO_SERVER_V1 "+nonce+" [0-9]{4,5}"))continue;
+                int port=Integer.parseInt(value.substring(value.lastIndexOf(' ')+1));if(port<1024||port>65535)continue;
+                String host=reply.getAddress().getHostAddress();
+                try{privateAddress(host);}catch(IOException invalid){continue;}
+                if(seen.add(host))found.put(new JSONObject().put("host",host).put("port",port).put("mode","own").put("version","Mando"));
+            }
+        }
+        return found;
+    }
+
     JSONArray scan(Network network,LinkProperties properties) throws Exception {
         if(properties==null) throw new IOException("No se puede leer la red Wi-Fi");
         try(Socket test=new Socket()) {network.bindSocket(test);}
@@ -255,6 +282,7 @@ final class RemoteClient implements InputClient {
         final List<JSONObject> found=Collections.synchronizedList(new ArrayList<JSONObject>());
         ExecutorService probes=Executors.newFixedThreadPool(16);
         List<Future<?>> futures=new ArrayList<>();
+        Future<JSONArray> ownProbe=probes.submit(() -> discoverOwn(network,base,count,localInt));
         try {
             for(int host=1;host<count-1;host++) {
                 int value=base+host;if(value==localInt)continue;
@@ -272,6 +300,7 @@ final class RemoteClient implements InputClient {
                 }));
             }
             for(Future<?> probe:futures) probe.get(3,TimeUnit.SECONDS);
+            try{JSONArray ownFound=ownProbe.get(4,TimeUnit.SECONDS);for(int i=0;i<ownFound.length();i++)found.add(0,ownFound.getJSONObject(i));}catch(Exception unavailable){ }
         } finally {probes.shutdownNow();}
         return new JSONArray(found);
     }

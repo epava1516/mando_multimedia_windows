@@ -27,7 +27,7 @@ const server = http.createServer((request, response) => {
         if (path==='/api/action') window.actions.push(data);
         if (path==='/api/ir/send') window.irActions.push(data);
         if (path==='/api/pair') window.pairRequests.push(data);
-        const result = path==='/api/pair' ? {mode:data.mode,version:'Mando v1 TLS',directLock:true,zoomHelperInstalled:true} : path==='/api/status' ? {paired:true} : path==='/api/settings' ?
+        const result = path==='/api/scan' ? {servers:[{host:'192.168.1.10',mode:'own',version:'Mando',port:1979}]} : path==='/api/pair' ? {mode:data.mode,version:'Mando v1 TLS',directLock:true,zoomHelperInstalled:true} : path==='/api/status' ? {paired:true} : path==='/api/settings' ?
           {sensitivity:.65,irTabVisible:true,zoomHelperInstalled:true} : path==='/api/ir/status' ? {available:true} : {ok:true};
         setTimeout(()=>window.nativeReply(id,result),0);
       }};
@@ -172,8 +172,11 @@ const server = http.createServer((request, response) => {
     await page.locator('[data-tab=settings]').click();
     await page.locator('#disconnect').click();
     await page.locator('[data-tab=touch]').click();
-    await page.locator('#server-mode').selectOption('own');
-    assert(await page.locator('#scan').isHidden(),'own mode must not scan the official protocol');
+    await page.locator('#scan').click();
+    await page.locator('#servers button').first().click();
+    assert.equal(await page.locator('#server-mode').inputValue(),'own','discovered Mando must select own mode');
+    assert.equal(await page.locator('#own-code').inputValue(),'','discovery must not provide pairing secrets');
+    assert(await page.locator('#scan').isVisible(),'own mode must support local discovery without skipping pairing');
     assert(await page.locator('#pin').isDisabled(),'hidden official host must not block own pairing');
     const code='mando1:192.168.1.10:1979:'+('a'.repeat(64))+':12345678';
     await page.locator('#own-code').fill(code);

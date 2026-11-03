@@ -1,13 +1,15 @@
-MANDO SERVER — 0.5.0-alpha.9 (experimental)
+MANDO SERVER — 0.5.0-alpha.10 (experimental)
 
 El instalador incluye el servidor y configura bloqueo y gestos. No necesitas Python ni ejecutar comandos de PowerShell.
 
 1. Cierra Remote Mouse en Windows (comparte el puerto TCP1979).
 2. Abre Mando Server desde Inicio con tu cuenta normal, sin ejecutar como administrador.
-3. Introduce la IP Wi-Fi del PC y permite la red privada si Windows lo solicita.
-4. En Android: Desconectar → Mando propio → pega el codigo mando1 que muestra el servidor → Conectar.
+3. La IP se detecta automaticamente. Si tienes varias redes, selecciona la Wi-Fi o Ethernet de casa en la ventana.
+4. En Android: Buscar en Wi-Fi → elige Mando propio → pega el codigo mando1 del PC → Conectar.
 
-La consola debe permanecer abierta para controlar el PC, tambien al bloquearlo. El servidor de red no se inicia automaticamente con Windows. El servicio local de bloqueo si arranca automaticamente.
+Cerrar la ventana deja Mando funcionando en la bandeja del sistema. Doble clic en su icono abre el codigo; Salir detiene el servidor. El servidor no se inicia automaticamente al entrar en Windows; abre Mando desde Inicio. El servicio local de bloqueo si arranca automaticamente.
+
+El instalador permite el servidor y la busqueda solo en redes privadas y desde la subred local. Configura tu Wi-Fi de casa como privada en Windows. No expone el servidor en redes publicas.
 
 Portapapeles: copia texto o una URL en el PC; Android → Teclado → Portapapeles → PC → movil. Solo texto (maximo 1000 unidades UTF-16), con Windows desbloqueado.
 

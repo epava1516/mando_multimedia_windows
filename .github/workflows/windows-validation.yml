@@ -59,6 +59,11 @@ jobs:
           python -m pip install pyinstaller==6.22.3
           python -m PyInstaller --clean --noconfirm --onefile --name MandoServer windows-server/server.py
           if ($LASTEXITCODE -ne 0) { throw 'Standalone server build failed' }
+          Add-Type -TypeDefinition (Get-Content windows-server/desktop/MandoTray.cs -Raw -Encoding UTF8) -Language CSharp -ReferencedAssemblies 'System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll' -OutputAssembly "$pwd/dist/MandoTray.exe" -OutputType WindowsApplication
+          $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--self-test' -Wait -PassThru
+          if ($tray.ExitCode -ne 0) { throw 'Tray self-test failed' }
+          $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($tray.ExitCode -ne 0) { Get-Content dist/tray-smoke-status.txt -ErrorAction SilentlyContinue; throw 'Tray server start/stop smoke test failed' }
           python windows-server/tests/test_frozen_server.py dist/MandoServer.exe
           if ($LASTEXITCODE -ne 0) { throw 'Standalone TLS smoke test failed' }
       - name: Build and verify Windows installer
@@ -73,25 +78,29 @@ jobs:
           if ($tool.ExitCode -ne 0) { throw 'Compiler setup failed' }
           $payload = Join-Path $pwd 'build/installer-payload'
           New-Item -ItemType Directory -Force -Path "$payload/desktop","$payload/windows-zoom" | Out-Null
-          Copy-Item dist/MandoServer.exe,windows-server/Instalar-MandoCompleto.ps1,windows-server/Desinstalar-MandoCompleto.ps1,windows-server/installer/Configure-Mando.ps1,windows-server/installer/LEEME.txt $payload
+          Copy-Item dist/MandoServer.exe,dist/MandoTray.exe,windows-server/Instalar-MandoCompleto.ps1,windows-server/Desinstalar-MandoCompleto.ps1,windows-server/installer/Configure-Mando.ps1,windows-server/installer/LEEME.txt $payload
           Copy-Item windows-server/desktop/MandoDesktopBroker.cs "$payload/desktop/"
           Copy-Item windows-zoom/MandoTouchZoom.cs "$payload/windows-zoom/"
           & "$compilerDir/ISCC.exe" ("/DPayloadDir="+$payload) windows-server/installer/MandoSetup.iss
           if ($LASTEXITCODE -ne 0) { throw 'Installer compile failed' }
-          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.9.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.10.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw 'Installer failed' }
           if ((Get-Service MandoDesktopBroker).Status -ne 'Running') { throw 'Installed service is not running' }
-          if (-not (Test-Path "$env:ProgramFiles/Mando/MandoServer.exe")) { throw 'Network server not installed' }
-          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.9.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          if (-not (Test-Path "$env:ProgramFiles/Mando/MandoTray.exe")) { throw 'Tray launcher not installed' }
+          $firewall = Get-NetFirewallRule -Name Mando-Server-TCP,Mando-Discovery-UDP
+          if (@($firewall).Count -ne 2 -or ($firewall | Where-Object {$_.Profile -ne 'Private'})) { throw 'Private firewall rules missing' }
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.10.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw 'Installer upgrade failed' }
           $remove = Start-Process -FilePath "$env:ProgramFiles/Mando/unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($remove.ExitCode -ne 0 -or (Get-Service MandoDesktopBroker -ErrorAction SilentlyContinue)) { throw 'Installer uninstall failed' }
+          if (Get-NetFirewallRule -Name Mando-Server-TCP,Mando-Discovery-UDP -ErrorAction SilentlyContinue) { throw 'Firewall rules not removed' }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: mando-windows-executables
           path: |
             dist/MandoServer.exe
-            dist/MandoSetup-0.5.0-alpha.9.exe
+            dist/MandoTray.exe
+            dist/MandoSetup-0.5.0-alpha.10.exe
             build/MandoDesktopBroker.exe
             build/MandoTouchZoom.exe
           retention-days: 7

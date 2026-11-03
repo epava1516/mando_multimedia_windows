@@ -115,8 +115,14 @@ function renderServers() {
   for (const server of discoveredServers.slice(serverPage * size, (serverPage + 1) * size)) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'full';
-    button.textContent = server.host + ' · Windows ' + server.version + (server.requiresPassword ? ' · clave' : '');
-    button.addEventListener('click', () => {$('pin').value = server.host; status('Seleccionado. Pulsa Conectar.');});
+    button.textContent = server.host + (server.mode==='own'?' · Mando propio':' · Remote Mouse '+server.version) + (server.requiresPassword ? ' · clave' : '');
+    button.addEventListener('click', () => {
+      $('server-mode').value=server.mode==='own'?'own':'official';
+      $('server-mode').dispatchEvent(new Event('change'));
+      $('pin').value=server.host;
+      status(server.mode==='own'?'Mando encontrado. Pega el código completo que muestra su icono en Windows y pulsa Conectar.':'Seleccionado. Pulsa Conectar.');
+      if(server.mode==='own')$('own-code').focus();
+    });
     $('servers').appendChild(button);
   }
   $('server-pages').hidden = pages === 1;
@@ -187,7 +193,7 @@ $('scan').addEventListener('click', async () => {
   $('scan').disabled = true; $('pair-button').disabled = true;
   $('servers').replaceChildren();
   $('server-pages').hidden = true;
-  status('Buscando servidores Remote Mouse en la red Wi-Fi…');
+  status('Buscando Mando y Remote Mouse en la red Wi-Fi…');
   try {
     const result = await api('/api/scan', {});
     discoveredServers = result.servers; serverPage = 0; renderServers();
@@ -245,7 +251,7 @@ $('server-mode').addEventListener('change', () => {
   $('own-code').hidden = !own; $('own-code').disabled = !own; $('own-code').required = own && !ownDeviceSaved;
   $('pair-label').textContent = own ? 'Código que muestra Mando en Windows' : 'IP del ordenador';
   $('pair-label').htmlFor = own ? 'own-code' : 'pin';
-  $('scan').hidden = own;
+  $('scan').hidden = false;
   $('servers').replaceChildren();$('server-pages').hidden = true;
 });
 $('pair-form').addEventListener('submit', async event => {

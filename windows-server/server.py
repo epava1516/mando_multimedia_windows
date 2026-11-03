@@ -357,6 +357,9 @@ def main():
                 except (EOFError, OSError): return
                 if command.strip().lower() == 'r':
                     state.rotate_pin(); print_code()
+                elif command.strip().upper() == 'STATUS':
+                    with state.guard: count=state.clients
+                    print(f'MANDO_STATUS {count}',flush=True)
                 elif command.strip().upper() == 'STOP':
                     server.shutdown();return
                 elif command.strip().upper() == 'REVOKE':
@@ -365,10 +368,19 @@ def main():
         print('R genera otro codigo. REVOKE revoca dispositivos. Ctrl+C cierra sesiones.', flush=True)
         print('No compartas el codigo fuera de tus dispositivos.', flush=True)
         threading.Thread(target=console,daemon=True).start()
+        discovery=None
+        if not arguments.dry_run:
+            try:
+                from discovery import Discovery
+                discovery=Discovery(arguments.port);discovery.start()
+            except OSError:
+                print('MANDO_DISCOVERY_UNAVAILABLE',flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
             pass
+        finally:
+            if discovery is not None:discovery.close()
 
 
 if __name__ == '__main__':
