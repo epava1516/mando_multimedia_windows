@@ -2,7 +2,7 @@
 
 ## 0.5.0-alpha.8 — diagnóstico de recepción del portapapeles
 
-- El usuario confirma Móvil → PC con el oficial; PC → móvil falla y sigue pendiente de resolver.
+- El usuario confirma Móvil → PC y PC → móvil con texto corto de Bloc de notas. Una URL del navegador devuelve `CLIP-NO-TEXT` (`nop` del oficial); queda pendiente probar esa URL con el servidor propio.
 - Sustituye el error genérico por un diálogo con código de formato, tamaño, decodificación, timeout o cierre de conexión. No muestra ni registra el contenido.
 - Revisión estática mantiene el formato existente: no se ha demostrado todavía la causa del fallo físico.
 
