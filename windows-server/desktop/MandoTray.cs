@@ -21,7 +21,8 @@ internal sealed class MandoTray : Form {
     readonly ComboBox networks=new ComboBox();
     readonly Label status=new Label();
     readonly TextBox code=new TextBox();
-    readonly Button refresh=new Button(),copy=new Button(),restart=new Button();
+    readonly Button refresh=new Button(),copy=new Button(),restart=new Button(),diagnostics=new Button();
+    string desktopStatus="";
     readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();
     readonly bool smoke,background;
     readonly string smokeDirectory;
@@ -67,7 +68,8 @@ internal sealed class MandoTray : Form {
         code.AccessibleName="Código de emparejamiento del PC";layout.Controls.Add(code);
         var buttons=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};
         copy.Text="Copiar código";refresh.Text="Nuevo código";restart.Text="Reiniciar";
-        foreach(var b in new[]{copy,refresh,restart}){b.AutoSize=true;b.MinimumSize=new Size(110,36);buttons.Controls.Add(b);}
+        diagnostics.Text="Diagnóstico";
+        foreach(var b in new[]{copy,refresh,restart,diagnostics}){b.AutoSize=true;b.MinimumSize=new Size(110,36);buttons.Controls.Add(b);}
         layout.Controls.Add(buttons);
         layout.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(490,0),Text="En Android: Buscar en Wi-Fi → Mando propio → pega el código del PC. Cerrar esta ventana deja Mando en la bandeja."});
         Controls.Add(layout);
@@ -78,7 +80,7 @@ internal sealed class MandoTray : Form {
         menu.Items.Add(new ToolStripSeparator());menu.Items.Add("Salir",null,(s,e)=>ExitServer());
         tray.Text="Mando Server";tray.Icon=Icon;tray.ContextMenuStrip=menu;tray.Visible=true;
         tray.DoubleClick+=(s,e)=>ShowWindow();
-        copy.Click+=(s,e)=>CopyCode();refresh.Click+=(s,e)=>Send("R");restart.Click+=(s,e)=>StartServer();
+        copy.Click+=(s,e)=>CopyCode();refresh.Click+=(s,e)=>Send("R");restart.Click+=(s,e)=>StartServer();diagnostics.Click+=(s,e)=>ShowDiagnostics();
         FormClosing+=(s,e)=>{if(e.CloseReason==CloseReason.UserClosing&&!exiting){e.Cancel=true;Hide();}};
         FormClosed+=(s,e)=>{timer.Stop();StopServer();tray.Visible=false;tray.Dispose();timer.Dispose();};
         Shown+=(s,e)=>{
@@ -90,11 +92,22 @@ internal sealed class MandoTray : Form {
             timer.Interval=1000;timer.Tick+=Tick;timer.Start();
         };
     }
+    void ShowDiagnostics() {
+        string account="No disponible",service="No disponible",configured="No disponible";
+        try {
+            string sid=WindowsIdentity.GetCurrent().User.Value;
+            string root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"MandoDesktop");
+            if(File.Exists(Path.Combine(root,"allowed.sid")))configured=File.ReadAllText(Path.Combine(root,"allowed.sid")).Trim()==sid?"Cuenta autorizada: coincide":"Cuenta autorizada: NO coincide";
+            account="Sesión del proceso: "+Process.GetCurrentProcess().SessionId;
+            using(var controller=new System.ServiceProcess.ServiceController("MandoDesktopBroker"))service="Servicio: "+controller.Status;
+        }catch(Exception){}
+        MessageBox.Show(service+"\r\n"+configured+"\r\n"+account+"\r\n"+(desktopStatus.Length>0?desktopStatus:"Sin fallo de bloqueo detectado")+"\r\n\r\nEl escritorio normal funciona aunque el bloqueo no esté disponible.","Diagnóstico de Mando");
+    }
     void ShowWindow(){ShowInTaskbar=true;Show();WindowState=FormWindowState.Normal;Activate();}
     void SetStatus(string value){status.Text=value;}
     void OnUI(Action action){if(!IsDisposed&&IsHandleCreated)try{BeginInvoke(action);}catch(InvalidOperationException){}}
     void StartServer() {
-        StopServer();ready=false;code.Clear();startupError="";copy.Enabled=false;refresh.Enabled=false;
+        StopServer();ready=false;code.Clear();startupError="";desktopStatus="";copy.Enabled=false;refresh.Enabled=false;
         var selected=networks.SelectedItem as Address;
         if(selected==null||(!Private(selected.IP)&&!smoke)){SetStatus("Selecciona una red local para iniciar.");return;}
         activeHost=selected.IP;
@@ -102,6 +115,7 @@ internal sealed class MandoTray : Form {
             UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,
             WorkingDirectory=AppDomain.CurrentDomain.BaseDirectory
         };
+        info.EnvironmentVariables["PYINSTALLER_RESET_ENVIRONMENT"]="1";
         if(smoke){Directory.CreateDirectory(smokeDirectory);info.EnvironmentVariables["LOCALAPPDATA"]=smokeDirectory;}
         var process=new Process{StartInfo=info};
         process.OutputDataReceived+=(s,e)=>{
@@ -111,10 +125,11 @@ internal sealed class MandoTray : Form {
                 var match=Pairing.Match(line);
                 if(match.Success&&match.Groups[1].Value==activeHost&&match.Groups[2].Value=="1979") {
                     code.Text=line;codeUntil=DateTime.UtcNow.AddMinutes(10);ready=true;copy.Enabled=true;refresh.Enabled=true;
-                    SetStatus("Escuchando en "+activeHost+":1979 · esperando al móvil");
+                    SetStatus("Escuchando en "+activeHost+":1979 · esperando al móvil"+(desktopStatus.Length>0?" · bloqueo pendiente":""));
                 } else if(Regex.IsMatch(line,@"^MANDO_STATUS [0-4]$")) {
-                    SetStatus("Escuchando en "+activeHost+":1979 · móviles conectados: "+line.Substring(13));
-                } else if(line=="MANDO_DISCOVERY_UNAVAILABLE")SetStatus("Servidor activo; la búsqueda Wi-Fi no está disponible. Puedes conectar con el código.");
+                    SetStatus("Escuchando en "+activeHost+":1979 · móviles conectados: "+line.Substring(13)+(desktopStatus.Length>0?" · bloqueo pendiente":""));
+                } else if(line.StartsWith("MANDO_DESKTOP_UNAVAILABLE DESKTOP_",StringComparison.Ordinal)){desktopStatus=line.Substring(26);SetStatus("Servidor activo. Bloqueo no disponible; abre Diagnóstico.");}
+                else if(line=="MANDO_DISCOVERY_UNAVAILABLE")SetStatus("Servidor activo; la búsqueda Wi-Fi no está disponible. Puedes conectar con el código.");
             });
         };
         process.ErrorDataReceived+=(s,e)=>{

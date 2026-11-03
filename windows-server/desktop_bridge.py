@@ -12,6 +12,8 @@ SERVICE = 'MandoDesktopBroker'
 class DesktopBridge:
     def __init__(self):
         self.lock=threading.Lock()
+        self.last_error="DESKTOP_NOT_CHECKED"
+        self.stage="PIPE_OPEN"
         self.handle=None
         self.kernel=C.WinDLL('kernel32',use_last_error=True)
         self.security=C.WinDLL('advapi32',use_last_error=True)
@@ -34,10 +36,12 @@ class DesktopBridge:
 
     def connect(self):
         if self.handle is not None:return
+        self.stage="PIPE_OPEN"
         handle=self.kernel.CreateFileW(PIPE,0x0012019B,0,None,3,0x40000000,None)
-        if handle==C.c_void_p(-1).value:raise OSError('Instala el componente de escritorio de Mando')
+        if handle==C.c_void_p(-1).value:raise OSError(C.get_last_error(),'No se puede abrir el componente local')
         manager=service=None
         try:
+            self.stage="SERVICE_IDENTITY"
             peer=W.ULONG()
             if not self.kernel.GetNamedPipeServerProcessId(handle,C.byref(peer)):raise OSError('Identidad IPC no disponible')
             manager=self.security.OpenSCManagerW(None,None,1)
@@ -91,6 +95,7 @@ class DesktopBridge:
         with self.lock:
             try:
                 self.connect()
+                self.stage="PIPE_STATUS" if message.get("op")=="status" else "PIPE_INPUT"
                 body=json.dumps(message,ensure_ascii=True,separators=(',',':')).encode('utf-8')
                 if len(body)>8192:raise ValueError('Mensaje IPC excesivo')
                 packet=struct.pack('!I',len(body))+body;offset=0
@@ -105,8 +110,13 @@ class DesktopBridge:
     def available(self):
         # A status probe may reconnect after idle shutdown. Input is never retried.
         for _ in range(2):
-            try:return self.request({'op':'status'}).get('available') is True
-            except (OSError,ValueError):pass
+            try:
+                result=self.request({'op':'status'}).get('available') is True
+                self.last_error='DESKTOP_OK' if result else 'DESKTOP_REJECTED'
+                return result
+            except (OSError,ValueError) as error:
+                number=error.errno if isinstance(error,OSError) and type(error.errno) is int else C.get_last_error()
+                self.last_error='DESKTOP_'+self.stage+'_'+str(number or 0)
         return False
 
     def execute(self,action):

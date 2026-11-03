@@ -59,7 +59,7 @@ jobs:
           python -m pip install pyinstaller==6.22.3
           python -m PyInstaller --clean --noconfirm --onefile --name MandoServer windows-server/server.py
           if ($LASTEXITCODE -ne 0) { throw 'Standalone server build failed' }
-          Add-Type -TypeDefinition (Get-Content windows-server/desktop/MandoTray.cs -Raw -Encoding UTF8) -Language CSharp -ReferencedAssemblies 'System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll' -OutputAssembly "$pwd/dist/MandoTray.exe" -OutputType WindowsApplication
+          Add-Type -TypeDefinition (Get-Content windows-server/desktop/MandoTray.cs -Raw -Encoding UTF8) -Language CSharp -ReferencedAssemblies 'System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.ServiceProcess.dll' -OutputAssembly "$pwd/dist/MandoTray.exe" -OutputType WindowsApplication
           $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--self-test' -Wait -PassThru
           if ($tray.ExitCode -ne 0) { throw 'Tray self-test failed' }
           $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--smoke-test' -Wait -PassThru

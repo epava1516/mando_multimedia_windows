@@ -339,7 +339,8 @@ def main():
     if os.name=='nt' and getattr(sys,'frozen',False) and len(sys.argv)==1:
         tray=Path(sys.executable).with_name('MandoTray.exe')
         if not tray.is_file():raise RuntimeError('Reinstala Mando: falta la interfaz de bandeja')
-        subprocess.Popen([str(tray)],close_fds=True)
+        environment=dict(os.environ);environment['PYINSTALLER_RESET_ENVIRONMENT']='1'
+        subprocess.Popen([str(tray)],close_fds=True,env=environment)
         return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host')
@@ -351,11 +352,11 @@ def main():
     adapter = DryRunInput() if arguments.dry_run else WindowsInput()
     directory=(Path(os.environ['LOCALAPPDATA'])/'MandoServer') if os.name=='nt' else Path(__file__).resolve().parent/'.state'
     context, fingerprint = identity(directory)
-    if not arguments.dry_run and (not adapter.secure_desktop_available() or not adapter.zoom_available()):
-        raise RuntimeError('Instala primero Instalar-MandoCompleto.ps1 y ejecuta el servidor desde la cuenta autorizada')
     state = State(adapter,device_file=directory/'devices.json')
     with Server((host, arguments.port), state, context) as server:
         print('Mando servidor propio v1'+(' — SIMULACION SIN ENTRADA' if arguments.dry_run else ''), flush=True)
+        if not arguments.dry_run and not adapter.secure_desktop_available():
+            print('MANDO_DESKTOP_UNAVAILABLE '+adapter.desktop_bridge.last_error,flush=True)
         def print_code():
             print('Copia este codigo en Mando (caduca en 10 minutos):', flush=True)
             print(f'mando1:{host}:{arguments.port}:{fingerprint}:{state.pin}', flush=True)
