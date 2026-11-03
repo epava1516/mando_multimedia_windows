@@ -30,3 +30,7 @@ La capacidad horizontal_scroll anuncia scroll_horizontal. No se trata como scrol
 ## Portapapeles explícito (alpha.7)
 
 Capacidad `clipboard_text`. Operación autenticada `clipboard` con el siguiente id secuencial y `action: {direction: "read"}` o `{direction: "write", text: "..."}`. Respuesta normal `{ok:true,id}` y campo `text` solo en lectura. Texto Unicode válido sin NUL, hasta 1000 unidades UTF-16. No se ofrece en dry-run; solo escritorio normal de la cuenta del servidor, sin broker Winlogon. Sin publicación/polling, historial, logs de contenido ni pegado automático. Comparte límites de frame8192 y revocación de dispositivo de la sesión TLS.
+
+## Descubrimiento local (alpha.10)
+
+UDP1980 recibe exactamente `MANDO_DISCOVER_V1 <nonce>` donde nonce tiene32 hex minúsculas. Responde `MANDO_SERVER_V1 <mismo nonce> <puerto TCP>`, sin credenciales ni operaciones. Límite global20 respuestas/segundo. El anuncio no acredita identidad; Android sigue exigiendo el código completo de la pantalla del PC para fijar el certificado TLS. Los cambios de estado y PIN solo pueden hacerse mediante consola local del proceso, no por descubrimiento.

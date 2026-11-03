@@ -1,4 +1,6 @@
+5ed9c19f4f283d208b3520892bc492fcb858bfd100d19ac79112abe998924204  MandoSetup-0.5.0-alpha.10.exe
 7788b4b2f7e5caafcb38cde9eb4bfbc0bd927a2a1b5d3355cd8f45378258e251  MandoSetup-0.5.0-alpha.9.exe
 284768eb1dd13a75bc5ee59e2e8e9d0a35a4ba8c3f31eff6922671534aa7face  mando-0.4.1-estable.apk
+fdc2c5bfeb7a4d1039285156153a9c8248691793eae4fbeb8e933b8a67184679  mando-0.5.0-alpha.10.apk
 830c03d4e7f36af402b4d69a39e8fb2b870ef19a96c3eb87e635921723dc4083  mando-0.5.0-alpha.8.apk
 5787a53ca8c26fd96b78829f7966bc4fd9b88792212cb58f1a62e8f71ab98248  mando-servidor-completo-windows-alpha.7.zip

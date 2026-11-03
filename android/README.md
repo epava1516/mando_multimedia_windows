@@ -93,3 +93,7 @@ El servidor oficial tiene rueda horizontal nativa (`w 2`/`w 3`), por lo que no s
 Mantén + o − para repetir volumen en Control o IR. Soltar, cambiar de pestaña o salir detiene la repetición.
 
 En Teclado → Portapapeles (también al final de la barra sobre el teclado Android), elige Móvil → PC o PC → móvil después de copiar texto en el origen. Solo texto, máximo 1000 unidades UTF-16; no pega en la ventana activa ni sincroniza en segundo plano. El oficial usa su puerto TCP1979 y confirma únicamente el envío al escribir; requiere probar la recepción en Windows. El propio requiere servidor alpha.7 y Windows desbloqueado.
+
+## Búsqueda de Mando propio (alpha.10)
+
+Buscar en Wi-Fi localiza Mando propio y Remote Mouse. Elegir Mando propio solicita el código completo que muestra el icono de Windows; la búsqueda no autoriza por sí sola ni transmite PIN o tokens. Requiere actualizar el servidor Windows a alpha.10 para anunciar su presencia.

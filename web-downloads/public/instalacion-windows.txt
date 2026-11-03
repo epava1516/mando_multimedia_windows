@@ -1,14 +1,14 @@
 MANDO — INSTALADOR WINDOWS
 
-1. Descarga MandoSetup-0.5.0-alpha.9.exe y abrelo con doble clic.
+1. Descarga MandoSetup-0.5.0-alpha.10.exe y abrelo con doble clic.
 2. Acepta el permiso de administrador para instalar el servicio local de bloqueo.
 3. Al terminar, cierra Remote Mouse y abre Mando Server desde Inicio con tu cuenta normal.
-4. Introduce la IP Wi-Fi del PC y permite la red privada si Windows lo solicita.
-5. En la app: Desconectar → Mando propio (experimental) → pega el codigo mando1 que muestra el PC → Conectar.
+4. La IP se detecta automaticamente. Si hay varias redes, selecciona tu Wi-Fi o Ethernet de casa.
+5. En la app: Desconectar → Buscar en Wi-Fi → Mando propio → pega el codigo mando1 que muestra el PC → Conectar.
 
 No necesitas instalar Python, extraer el ZIP ni ejecutar comandos de PowerShell.
 
-El servidor de red debe permanecer abierto para usar el PC, tambien bloqueado. No arranca automaticamente con Windows. El servicio local de bloqueo si arranca automaticamente.
+Cerrar la ventana deja Mando funcionando en la bandeja del sistema. Doble clic en el icono abre el codigo; Salir detiene el servidor. No arranca automaticamente al iniciar Windows. La red de casa debe estar configurada como privada.
 
 PORTAPAPELES
 Copia directamente texto o una URL del navegador. Android → Teclado → Portapapeles → PC → movil. Luego pega en el movil. Solo texto, maximo 1000 unidades UTF-16, con Windows desbloqueado.

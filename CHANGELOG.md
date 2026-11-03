@@ -1,5 +1,14 @@
 # Historial
 
+## 0.5.0-alpha.10 — bandeja e IP automática
+
+- Inicio abre el servidor en la bandeja del sistema con IP de la red local detectada automáticamente. Cerrar oculta la ventana; Salir detiene el backend.
+- La app busca Mando propio y Remote Mouse; elegir Mando mantiene obligatorio el código completo la primera vez.
+- Reglas de firewall limitadas al programa, red privada y subred local para conexión TCP1979 y descubrimiento UDP1980.
+- Estado y gestión del código desde la bandeja; detección de puerto ocupado e instancia duplicada.
+- Verificación Windows CI41727905603 correcta, incluidos arranque/parada y cierre a bandeja, instalación/actualización/desinstalación y reglas privadas. APK instalada en el móvil; validación de conexión física pendiente.
+
+
 ## 0.5.0-alpha.9 — instalador Windows
 
 - Instalador EXE con asistente, acceso en Inicio y desinstalador. Incluye servidor y configura servicio de bloqueo/gestos sin Python externo ni comandos manuales.

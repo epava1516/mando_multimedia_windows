@@ -1,4 +1,4 @@
-# Servidor propio completo — experimental 0.5.0-alpha.9
+# Servidor propio completo — experimental 0.5.0-alpha.10
 
 Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
 
@@ -6,11 +6,11 @@ Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de re
 
 ## Instalador EXE (recomendado)
 
-Descarga `MandoSetup-0.5.0-alpha.9.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
+Descarga `MandoSetup-0.5.0-alpha.10.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
 
-Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, introduce la IP Wi-Fi del PC y empareja Android en modo **Mando propio** con el código mostrado. El servidor de red no arranca automáticamente con Windows: su consola debe permanecer abierta.
+Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, la IP se detecta automáticamente. Si hay varias redes, selecciona la de casa en la ventana. En Android pulsa Buscar en Wi-Fi, selecciona Mando propio y pega el código mostrado. El servidor queda en la bandeja al cerrar la ventana. Doble clic abre el código; Salir detiene el servidor. No arranca automáticamente al entrar en Windows.
 
-Para actualizar basta con ejecutar el nuevo instalador: reemplaza el componente de escritorio reconocido y conserva la identidad TLS y autorizaciones en LocalAppData. Para desinstalar usa Configuración → Aplicaciones → Mando Server. Windows CI [41724946650](https://github.com/epava1516/mando_multimedia_windows/actions/runs/41724946650) verificó instalación, actualización y desinstalación del EXE. El instalador todavía no tiene firma digital.
+Para actualizar basta con ejecutar el nuevo instalador: reemplaza el componente de escritorio reconocido y conserva la identidad TLS y autorizaciones en LocalAppData. Para desinstalar usa Configuración → Aplicaciones → Mando Server. Windows CI [41727905603](https://github.com/epava1516/mando_multimedia_windows/actions/runs/41727905603) verificó el arranque/parada del backend y cierre a bandeja, además de instalación, actualización, reglas privadas y desinstalación del EXE. El instalador todavía no tiene firma digital.
 
 El ZIP y los siguientes comandos se conservan como alternativa manual.
 
@@ -99,3 +99,11 @@ En el modo propio se solicita directamente CF_UNICODETEXT a Windows. No se enume
 Para pasar desde el oficial: cierra Remote Mouse en Windows antes de iniciar MandoServer.exe (ambos usan TCP1979); en Android pulsa Desconectar, selecciona Mando propio y pega el código del nuevo servidor. Puedes volver al oficial seleccionándolo de nuevo. El paquete completo requiere la instalación descrita arriba; no basta con actualizar la APK.
 
 El workflow incluye dos pruebas con el portapapeles real de un runner Windows aislado: URL Unicode y URL con DataObject registrado antes de UnicodeText. Utilizan datos sintéticos de example.invalid y vacían el portapapeles de prueba al terminar. Solo se activan con MANDO_TEST_CLIPBOARD=1 en Windows. No inspeccionan el portapapeles del usuario.
+
+## Bandeja, búsqueda y red privada (alpha.10)
+
+El acceso de Inicio abre MandoTray.exe como usuario normal; detecta IPv4 privada en Ethernet/Wi-Fi, inicia el backend sin consola y muestra estado, código, copiar/renovar y reiniciar. Cerrar oculta la ventana; Salir detiene solo su propio proceso backend. Rechaza el arranque elevado y evita dos instancias del mismo usuario. Detecta el conflicto de puerto con Remote Mouse.
+
+El instalador agrega reglas únicamente para MandoServer.exe, TCP1979 y UDP1980, redes privadas y origen LocalSubnet. El desinstalador retira únicamente esas reglas si su programa coincide. La red Wi-Fi de casa debe tener perfil privado en Windows.
+
+El anuncio UDP solo devuelve presencia, puerto y nonce de la petición; nunca PIN, certificado, tokens ni códigos. Android correlaciona el nonce, limita respuestas y conserva el emparejamiento por código completo con pinning TLS. Encontrar un servidor no lo autoriza automáticamente.
