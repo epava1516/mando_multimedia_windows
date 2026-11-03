@@ -1,5 +1,12 @@
 # Historial
 
+## 0.5.0-alpha.8 — diagnóstico de recepción del portapapeles
+
+- El usuario confirma Móvil → PC con el oficial; PC → móvil falla y sigue pendiente de resolver.
+- Sustituye el error genérico por un diálogo con código de formato, tamaño, decodificación, timeout o cierre de conexión. No muestra ni registra el contenido.
+- Revisión estática mantiene el formato existente: no se ha demostrado todavía la causa del fallo físico.
+
+
 ## 0.5.0-alpha.7 — volumen mantenido y portapapeles
 
 - Mantener volumen más/menos repite hasta soltar, tanto en Windows como en IR. Se cancela al cambiar de pestaña, pausar, perder foco o desconectar; una sola operación pendiente.

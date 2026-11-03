@@ -223,6 +223,16 @@ public final class MainActivity extends Activity {
             .setItems(new String[]{"Móvil → PC", "PC → móvil"},(dialog,which)->exchangeClipboard(which==0)).show();
     }
 
+    private static String clipboardError(Exception error) {
+        if(error instanceof java.net.SocketTimeoutException)
+            return "CLIP-TIMEOUT: El servidor no devolvió el portapapeles a tiempo. Comprueba que Windows está desbloqueado";
+        if(error instanceof java.io.EOFException)
+            return "CLIP-CLOSED: El servidor cerró la conexión sin completar la respuesta";
+        String message=error.getMessage();
+        if(message!=null && message.startsWith("CLIP-") && message.length()<250)return message;
+        return "CLIP-CONNECTION: No se pudo completar la transferencia. Comprueba la conexión y que el servidor propio esté actualizado";
+    }
+
     private static String boundedClipboard(String value) throws IOException {
         if(value==null || value.length()>1000 || value.indexOf(0)>=0)
             throw new IOException("Solo texto, hasta 1000 caracteres");
@@ -258,7 +268,12 @@ public final class MainActivity extends Activity {
                         Toast.makeText(this,toPc?(target==officialClient?"Texto enviado al portapapeles del PC":"Texto copiado al portapapeles del PC"):"Texto copiado al portapapeles del móvil",Toast.LENGTH_SHORT).show();
                     });
                 } catch(Exception error) {
-                    runOnUiThread(()->{if(foreground&&resume.current(stamp))Toast.makeText(this,"No se pudo compartir. Comprueba conexión, texto (máx. 1000) y Windows desbloqueado",Toast.LENGTH_LONG).show();});
+                    final String reason=clipboardError(error);
+                    runOnUiThread(()->{
+                        if(foreground&&resume.current(stamp))new AlertDialog.Builder(this)
+                            .setTitle(toPc?"Portapapeles: móvil → PC":"Portapapeles: PC → móvil")
+                            .setMessage(reason).setPositiveButton("Aceptar",null).show();
+                    });
                 }
             });
         } catch(Exception error) {

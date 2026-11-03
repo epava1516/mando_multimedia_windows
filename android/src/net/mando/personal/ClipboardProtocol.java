@@ -39,15 +39,18 @@ final class ClipboardProtocol {
         byte[] tag=new byte[3];input.readFully(tag);
         int size=Integer.reverseBytes(input.readInt());
         String type=new String(tag,StandardCharsets.US_ASCII);
-        if(size<0 || size>4000)throw new IOException("Portapapeles fuera de rango");
+        if(size<0 || size>4000)throw new IOException("CLIP-SIZE: El texto del PC supera el límite de 1000 caracteres o la respuesta no es compatible");
         if("emp".equals(type)&&size==0)return "";
-        if(!"txt".equals(type))throw new IOException("El portapapeles del PC no contiene texto compatible");
+        if("img".equals(type))throw new IOException("CLIP-IMAGE: El PC devuelve una imagen. Copia texto plano y vuelve a intentarlo");
+        if("nop".equals(type))throw new IOException("CLIP-NO-TEXT: Windows no ofrece texto compatible. Copia una palabra desde Bloc de notas");
+        if(!"txt".equals(type))throw new IOException("CLIP-HEADER: Respuesta del servidor no compatible");
         byte[] body=new byte[size];input.readFully(body);
         for(int i=0;i<size;i++)body[i]^=key[i%8];
         try {
             String text=StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(body)).toString();
-            return validate(text);
-        }catch(CharacterCodingException error){throw new IOException("Respuesta de portapapeles inválida");}
+            try{return validate(text);}
+            catch(IOException error){throw new IOException("CLIP-TEXT: Texto del PC demasiado largo o no compatible (máximo 1000 caracteres)");}
+        }catch(CharacterCodingException error){throw new IOException("CLIP-DECODE: No se pudo decodificar la respuesta. Cierra otros clientes Remote Mouse y vuelve a intentarlo");}
     }
 }
