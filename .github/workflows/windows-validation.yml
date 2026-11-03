@@ -36,6 +36,13 @@ jobs:
         run: |
           python -m pip install -r windows-server/requirements.txt
           python -m unittest discover -s windows-server/tests -v
+      - name: Real Windows clipboard URL fixtures
+        shell: powershell
+        env:
+          MANDO_TEST_CLIPBOARD: '1'
+        run: |
+          python windows-server/tests/test_clipboard_native.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Native clipboard URL test failed' }
       - name: Install local broker and verify pipe identity without input
         shell: powershell
         run: |

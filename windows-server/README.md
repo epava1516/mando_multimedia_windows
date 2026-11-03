@@ -1,4 +1,4 @@
-# Servidor propio completo — experimental 0.5.0-alpha.4
+# Servidor propio completo — experimental 0.5.0-alpha.7
 
 Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
 
@@ -81,3 +81,11 @@ El workflow Windows compila ambos componentes, prueba el instalador y la identid
 La APK alpha.4 y este paquete añaden los bordes de rueda. Para actualizar el componente de escritorio ya instalado, ejecuta su desinstalador y vuelve a ejecutar Instalar-MandoCompleto.ps1; la identidad TLS y las autorizaciones de LocalAppData se conservan.
 
 Alpha.7 añade portapapeles de texto bajo demanda por TLS. Requiere actualizar MandoServer.exe; no cambia el broker. Solo Windows desbloqueado y hasta 1000 unidades UTF-16, sin sincronización automática ni historial.
+
+## Copiar URLs directamente desde el navegador
+
+En el modo propio se solicita directamente CF_UNICODETEXT a Windows. No se enumeran ni convierten DataObject, HTML o imágenes antes del texto. Por tanto, el formato adicional de un navegador no impide leer la URL si Windows ofrece su representación de texto. Se conserva el límite de 1000 unidades UTF-16.
+
+Para pasar desde el oficial: cierra Remote Mouse en Windows antes de iniciar MandoServer.exe (ambos usan TCP1979); en Android pulsa Desconectar, selecciona Mando propio y pega el código del nuevo servidor. Puedes volver al oficial seleccionándolo de nuevo. El paquete completo requiere la instalación descrita arriba; no basta con actualizar la APK.
+
+El workflow incluye dos pruebas con el portapapeles real de un runner Windows aislado: URL Unicode y URL con DataObject registrado antes de UnicodeText. Utilizan datos sintéticos de example.invalid y vacían el portapapeles de prueba al terminar. Solo se activan con MANDO_TEST_CLIPBOARD=1 en Windows. No inspeccionan el portapapeles del usuario.
