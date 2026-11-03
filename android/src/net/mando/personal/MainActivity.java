@@ -337,7 +337,9 @@ public final class MainActivity extends Activity {
                             client.close(); result.put("ok", true);
                         } else if ("/api/action".equals(path)) {
                             if (data == null) throw new IOException("Falta la acción");
-                            if ("zoom".equals(data.optString("type")) &&
+                            if("scroll_horizontal".equals(data.optString("type"))&&client==ownClient&&!ownClient.supportsHorizontalScroll()) {
+                                result.put("unsupported","Actualiza el servidor propio para el desplazamiento horizontal.");
+                            } else if ("zoom".equals(data.optString("type")) &&
                                     !(client==ownClient ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false))) {
                                 runOnUiThread(() -> showZoomSetup());result.put("needsSetup",true);
                             } else {

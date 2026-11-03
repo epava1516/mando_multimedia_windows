@@ -33,6 +33,7 @@ final class RemoteClient implements InputClient {
     private volatile DatagramSocket commandSocket;
     private volatile boolean ready;
     private int version;
+    private long lastWheelAt=-1000;
     private static final Map<String,String> KEYS = new HashMap<>();
     static {
         String[][] pairs = {{"ESC","esc"},{"TAB","tab"},{"ENTER","RTN"},{"BACKSPACE","BAS"},
@@ -107,7 +108,7 @@ final class RemoteClient implements InputClient {
             udpCandidate.bind(new InetSocketAddress(0));
             udpCandidate.connect(address,PORT);
             if(socket!=candidate) throw new IOException("Conexión cancelada");
-            version=handshake.getInt("version"); ready=true;candidate.setSoTimeout(0);
+            version=handshake.getInt("version");lastWheelAt=-1000; ready=true;candidate.setSoTimeout(0);
             Thread monitor=new Thread(() -> {
                 try {byte[] buffer=new byte[512]; while(socket==candidate && candidate.getInputStream().read(buffer)!=-1) { }}
                 catch(IOException ignored) { }
@@ -151,9 +152,17 @@ final class RemoteClient implements InputClient {
             String code="left".equals(button)?"l":"right".equals(button)?"r":null;
             if(code==null) throw new IOException("Botón no permitido");
             sendCommand(Protocol.frame("mos","R "+code+" d"),Protocol.frame("mos","R "+code+" u"));
-        } else if("scroll".equals(type)) {
+        } else if("scroll".equals(type)||"scroll_horizontal".equals(type)) {
             int steps=number(data,"steps",-10,10);
-            for(int i=0;i<Math.abs(steps);i++) sendCommand(Protocol.frame("mos",steps>0?"w 0":"w 1"));
+            byte[] frame=Protocol.wheel("scroll_horizontal".equals(type),steps>0);
+            if(steps!=0) {
+                long now=android.os.SystemClock.elapsedRealtime();
+                // Server 531 uses magnitude 0 after >=80ms idle, then 8 units by default.
+                // Prime that idle state once; fifteen live samples form one 120-unit wheel step.
+                int samples=Math.abs(steps)*15+(now-lastWheelAt>=70?1:0);
+                for(int i=0;i<samples;i++)sendCommand(frame);
+                lastWheelAt=android.os.SystemClock.elapsedRealtime();
+            }
         } else if("task_view".equals(type)) {
             sendCommand(Protocol.taskView());
         } else if("zoom".equals(type)) {

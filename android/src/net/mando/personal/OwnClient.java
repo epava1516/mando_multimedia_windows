@@ -27,6 +27,7 @@ final class OwnClient implements InputClient {
         ready=false;Socket previous=socket;socket=null;
         if(previous!=null)try{previous.close();}catch(IOException ignored){ }
     }
+    boolean supportsHorizontalScroll(){return capabilities.optBoolean("horizontal_scroll",false);}
     boolean supportsSecureDesktop() {return capabilities.optBoolean("secure_desktop",false);}
     boolean isDryRun() {return capabilities.optBoolean("dry_run",false);}
     boolean supportsZoom() {return capabilities.optBoolean("zoom",false);}

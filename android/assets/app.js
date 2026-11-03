@@ -62,7 +62,7 @@ async function api(path, data) {
 function suspendSession(label) {
   uiGeneration++;suspended=true;paired=false;
   $('own-code').value='';
-  pointers.clear();dx=dy=0;resetModifiers();
+  pointers.clear();pad.classList.remove('edge-active-y','edge-active-x');dx=dy=0;resetModifiers();
   document.body.classList.add('session-paused');
   $('pairing').hidden=true;
   $('restoring').hidden=activeTab!=='touch'||!$('touch').hidden;
@@ -202,6 +202,7 @@ function action(data) {
     if (!paired) throw new Error('Vuelve a vincular el PC');
     return api('/api/action', data).then(result => {
       if (result.expired&&stamp===uiGeneration&&!suspended) status('El gesto ha caducado. Vuelve a intentarlo.', true);
+      if(result.unsupported&&stamp===uiGeneration&&!suspended)status(result.unsupported,true);
       return result;
     });
   });
@@ -371,6 +372,8 @@ document.querySelectorAll('[data-scroll]').forEach(b => b.addEventListener('clic
 const pointers = new Map();
 let multi = false, distance = 0, startTime = 0;
 let gesture = null, initialSpan = 0, initialY = 0, spanAnchor = 0, scrollAnchor = 0;
+let fingerOrigins = new Map();
+let edgeAxis = null, edgeAnchor = 0;
 let threeStart = null, zoomSetupRequested = false, zoomLastSent = 0;
 function centroid() {
   const points = [...pointers.values()];
@@ -384,14 +387,21 @@ const pad = $('touchpad');
 pad.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   event.preventDefault(); pad.setPointerCapture(event.pointerId);
-  if (!pointers.size) {multi = false; distance = 0; gesture = null; threeStart = null; zoomSetupRequested = false; zoomLastSent = 0; startTime = Date.now();}
+  if (!pointers.size) {multi = false; distance = 0; gesture = null; threeStart = null; zoomSetupRequested = false; zoomLastSent = 0; fingerOrigins.clear();
+    edgeAxis = event.target.closest('[data-wheel-axis]')?.dataset.wheelAxis || null;
+    edgeAnchor = edgeAxis === 'horizontal' ? event.clientX : event.clientY;
+    pad.classList.toggle('edge-active-y',edgeAxis==='vertical');
+    pad.classList.toggle('edge-active-x',edgeAxis==='horizontal');
+    startTime = Date.now();}
   pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
   if (pointers.size > 1) {
     multi = true; dx = dy = 0;
+    if(edgeAxis){gesture='blocked';return;}
     if (pointers.size === 2 && gesture !== 'blocked') {
       const geometry = twoFingerGeometry();
       initialSpan = spanAnchor = geometry.span;
       initialY = scrollAnchor = geometry.y;
+      fingerOrigins = new Map([...pointers].map(([id,point])=>[id,{...point}]));
     } else if (pointers.size === 3 && !gesture) {
       gesture = 'three'; threeStart = centroid();
     } else gesture = 'blocked';
@@ -416,10 +426,17 @@ pad.addEventListener('pointermove', event => {
     if (pointers.size !== 2 || gesture === 'blocked') return;
     const geometry = twoFingerGeometry();
     if (!gesture) {
+      const deltas=[...pointers].map(([id,point])=>{
+        const origin=fingerOrigins.get(id);return {x:point.x-origin.x,y:point.y-origin.y};
+      });
+      const [a,b]=deltas, lengthA=Math.hypot(a.x,a.y), lengthB=Math.hypot(b.x,b.y);
+      // Pointer updates arrive separately: wait for both fingers before choosing.
+      if(lengthA<6||lengthB<6)return;
+      const agreement=(a.x*b.x+a.y*b.y)/(lengthA*lengthB);
       const pinchTravel = Math.abs(geometry.span - initialSpan);
       const scrollTravel = Math.abs(geometry.y - initialY);
-      if (pinchTravel >= 12 && pinchTravel > scrollTravel * 1.3) gesture = 'pinch';
-      else if (scrollTravel >= 12 && scrollTravel > pinchTravel * 1.3) gesture = 'scroll';
+      if(agreement>.55 && scrollTravel>=10)gesture='scroll';
+      else if(agreement<.2 && pinchTravel>=14 && pinchTravel>scrollTravel*1.3)gesture='pinch';
       else return;
     }
     // Lock the gesture until all fingers lift; a pinch never also scrolls.
@@ -445,6 +462,13 @@ pad.addEventListener('pointermove', event => {
         action({type: 'scroll', steps}).catch(() => {});
       }
     }
+  } else if(!multi && edgeAxis) {
+    const position=edgeAxis==='horizontal'?event.clientX:event.clientY;
+    const steps=Math.max(-10,Math.min(10,Math.trunc((position-edgeAnchor)/20)));
+    if(steps){
+      edgeAnchor+=steps*20;
+      action({type:edgeAxis==='horizontal'?'scroll_horizontal':'scroll',steps}).catch(()=>{});
+    }
   } else if (!multi) {dx += x * sensitivity; dy += y * sensitivity;}
 });
 function endPointer(event) {
@@ -452,12 +476,13 @@ function endPointer(event) {
   pointers.delete(event.pointerId);
   if (pointers.size) gesture = 'blocked';
   if (!pointers.size) {
+    pad.classList.remove('edge-active-y','edge-active-x');
     flushMove(true);
-    if (event.type === 'pointerup' && !multi && distance < 8 && Date.now() - startTime < 500) action({type: 'click', button: 'left'}).catch(() => {});
+    if (event.type === 'pointerup' && !multi && !edgeAxis && distance < 8 && Date.now() - startTime < 500) action({type: 'click', button: 'left'}).catch(() => {});
   }
 }
 ['pointerup','pointercancel','lostpointercapture'].forEach(name => pad.addEventListener(name, endPointer));
-document.addEventListener('visibilitychange', () => {pointers.clear(); dx = dy = 0; resetModifiers();});
+document.addEventListener('visibilitychange', () => {pointers.clear();pad.classList.remove('edge-active-y','edge-active-x'); dx = dy = 0; resetModifiers();});
 api('/api/status').then(result => {
   connectionMode = result.mode || 'official';
   window.mandoSessionResult(result);

@@ -111,6 +111,18 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError):state.issue_device()
         self.assertFalse(state.pair(state.pin))
 
+    def test_wheel_axes_and_directions(self):
+        adapter=WindowsInput.__new__(WindowsInput);adapter.default_desktop=lambda:True;adapter.send=Mock()
+        adapter.execute({'type':'scroll','steps':2})
+        vertical=adapter.send.call_args.args[0]
+        self.assertEqual(len(vertical),1);self.assertEqual(vertical[0].payload.mi.flags,0x800)
+        self.assertEqual(vertical[0].payload.mi.data,(-240)&0xffffffff)
+        adapter.execute({'type':'scroll_horizontal','steps':2})
+        horizontal=adapter.send.call_args.args[0]
+        self.assertEqual(len(horizontal),1);self.assertEqual(horizontal[0].payload.mi.flags,0x1000)
+        self.assertEqual(horizontal[0].payload.mi.data,240)
+        with self.assertRaises(ValueError):server.validate_action({'type':'scroll_horizontal','steps':True})
+
     def test_fixed_windows_input_abi(self):
         import ctypes
         self.assertEqual(ctypes.sizeof(Input),40 if ctypes.sizeof(ctypes.c_void_p)==8 else 28)

@@ -34,6 +34,10 @@ final class Protocol {
         return frame("key", "[kld]" + (enlarge ? "f12" : "f11") + "[*]ctrl[*]alt");
     }
 
+    static byte[] wheel(boolean horizontal,boolean positive) {
+        return frame("mos",horizontal?(positive?"w 2":"w 3"):(positive?"w 0":"w 1"));
+    }
+
     static byte[] taskView() {
         return frame("key", "[kld]tab[*]cmd");
     }

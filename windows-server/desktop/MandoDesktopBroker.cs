@@ -154,7 +154,8 @@ internal sealed class MandoDesktopBroker : ServiceBase {
             case "click":
                 string button=Text(action,"button");if(button!="left"&&button!="right")throw new IOException();
                 result.Add(Mouse(button=="left"?2u:8u,0,0,0));result.Add(Mouse(button=="left"?4u:16u,0,0,0));break;
-            case "scroll":result.Add(Mouse(0x800,0,0,Number(action,"steps",-10,10)*120));break;
+            case "scroll":result.Add(Mouse(0x800,0,0,-Number(action,"steps",-10,10)*120));break;
+            case "scroll_horizontal":result.Add(Mouse(0x1000,0,0,Number(action,"steps",-10,10)*120));break;
             case "text":
                 string text=Text(action,"text");if(text==null||text.Length<1||text.Length>1000)throw new IOException();
                 new UnicodeEncoding(false,false,true).GetBytes(text);
@@ -275,6 +276,8 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         if(BuildEvents(new Dictionary<string,object>{{"type","text"},{"text","a\u00f1\ud83d\ude42"}}).Length!=8)throw new Exception();
         try{BuildEvents(new Dictionary<string,object>{{"type","execute"},{"path","cmd.exe"}});throw new Exception("Accepted arbitrary action");}catch(IOException){}
         try{BuildEvents(new Dictionary<string,object>{{"type","move"},{"dx",true},{"dy",0}});throw new Exception("Accepted boolean");}catch(IOException){}
+        INPUT[] horizontal=BuildEvents(new Dictionary<string,object>{{"type","scroll_horizontal"},{"steps",1}});
+        if(horizontal.Length!=1||horizontal[0].data.mouse.flags!=0x1000||horizontal[0].data.mouse.data!=120)throw new Exception("Horizontal wheel");
         return 0;
     }
     [STAThread] static int Main(string[] args) {

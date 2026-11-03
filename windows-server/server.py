@@ -50,8 +50,8 @@ def validate_action(data):
         return {'type': kind, 'dx': integer(data.get('dx'), -500, 500), 'dy': integer(data.get('dy'), -500, 500)}
     if kind == 'click' and data.get('button') in ('left', 'right'):
         return {'type': kind, 'button': data['button']}
-    if kind in ('scroll', 'zoom'):
-        return {'type': kind, 'steps': integer(data.get('steps'), -10 if kind == 'scroll' else -3, 10 if kind == 'scroll' else 3)}
+    if kind in ('scroll', 'scroll_horizontal', 'zoom'):
+        return {'type': kind, 'steps': integer(data.get('steps'), -3 if kind == 'zoom' else -10, 3 if kind == 'zoom' else 10)}
     if kind in ('lock', 'task_view'):
         return {'type': kind}
     raise ValueError('Accion no permitida')
@@ -193,7 +193,7 @@ class State:
 
     def capabilities(self):
         return {'input': True, 'lock': True, 'task_view': True,
-                'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput),'persistent_pairing':True}
+                'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput),'persistent_pairing':True,'horizontal_scroll':True}
 
 
 class Handler(socketserver.BaseRequestHandler):

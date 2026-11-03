@@ -94,7 +94,7 @@ class WindowsInput:
     def execute(self, action):
         kind = action['type']
         if kind != 'lock' and not self.default_desktop():
-            if kind not in ('move','click','scroll','key','text'):
+            if kind not in ('move','click','scroll','scroll_horizontal','key','text'):
                 raise RuntimeError('Ese gesto requiere el escritorio normal')
             self.desktop_bridge.execute(action)
             return
@@ -131,7 +131,9 @@ class WindowsInput:
             down, up = (2, 4) if action['button'] == 'left' else (8, 16)
             self.send([mouse_event(down), mouse_event(up)])
         elif kind == 'scroll':
-            self.send([mouse_event(0x800, data=action['steps'] * 120)])
+            self.send([mouse_event(0x800, data=-action['steps'] * 120)])
+        elif kind == 'scroll_horizontal':
+            self.send([mouse_event(0x1000, data=action['steps'] * 120)])
 
 class DryRunInput:
     """Validate and acknowledge commands without issuing host input."""

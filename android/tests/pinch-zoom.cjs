@@ -63,6 +63,39 @@ const server = http.createServer((request, response) => {
     sent=await actions();
     assert(sent.some(action=>action.type==='scroll'),'parallel fingers must scroll');
     assert(sent.every(action=>action.type==='scroll'),'scroll must not also zoom');
+    // Vertically aligned fingers deliver separate pointer updates; this is scroll, not pinch.
+    await reset();
+    await send('touchStart',[point(1,cx,cy-40),point(2,cx,cy+40)]);
+    await send('touchMove',[point(1,cx,cy),point(2,cx,cy+40)]);
+    assert.deepEqual(await actions(),[],'wait for the second finger before classifying');
+    await send('touchMove',[point(1,cx,cy),point(2,cx,cy+80)]);
+    await finish();
+    assert((await actions()).every(action=>action.type==='scroll'),'staggered parallel updates must not pinch');
+    assert((await actions()).some(action=>action.type==='scroll'),'staggered parallel updates must scroll');
+    // Dedicated edge starts choose the wheel axis for the entire drag.
+    await reset();
+    const edgeX=bounds.x+bounds.width-22, edgeY=bounds.y+bounds.height-22;
+    await send('touchStart',[point(1,edgeX,cy)]);
+    await send('touchMove',[point(1,edgeX,cy+60)]);
+    await finish();
+    sent=await actions();
+    assert(sent.length>0&&sent.every(action=>action.type==='scroll'&&action.steps>0),'right edge must wheel down without moving or clicking');
+    await reset();
+    await send('touchStart',[point(1,cx,edgeY)]);
+    await send('touchMove',[point(1,cx+60,edgeY)]);
+    await finish();
+    sent=await actions();
+    assert(sent.length>0&&sent.every(action=>action.type==='scroll_horizontal'&&action.steps>0),'bottom edge must wheel right');
+    await reset();
+    await send('touchStart',[point(1,cx,edgeY)]);
+    await send('touchMove',[point(1,cx-60,edgeY)]);
+    await finish();
+    sent=await actions();
+    assert(sent.length>0&&sent.every(action=>action.type==='scroll_horizontal'&&action.steps<0),'bottom edge must wheel left');
+    await reset();
+    await send('touchStart',[point(1,edgeX,cy)]);
+    await finish();
+    assert.deepEqual(await actions(),[],'tapping an edge must not click the PC');
     await start();
     await send('touchMove',[point(1,cx-52,cy+2),point(2,cx+52,cy+2)]);
     await finish();
@@ -139,7 +172,7 @@ const server = http.createServer((request, response) => {
     assert.equal(await page.evaluate(()=>window.heldActions.length),1,'queued actions must not replay on recovered PC');
     assert(await page.locator('#pairing').isHidden(),'stale socket error must not undo successful recovery');
     assert.deepEqual(errors,[]);
-    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement, tap, Task View, zoom setup guard own-server pairing UI and resume UI: passed');
+    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement, tap, Task View, zoom setup guard own-server pairing UI resume UI and wheel edges: passed');
   } finally {
     if(browser)await browser.close();
     await new Promise(resolve=>server.close(resolve));
