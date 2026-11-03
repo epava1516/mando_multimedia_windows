@@ -76,6 +76,7 @@ window.mandoResuming=()=>suspendSession('Reconectando…');
 window.mandoSessionResult=result=>{
   if(result.resuming){window.mandoResuming();return;}
   connectionMode=result.mode||connectionMode;
+  if(!result.paired&&result.mode&&$('server-mode').value!==result.mode){$('server-mode').value=result.mode;$('server-mode').dispatchEvent(new Event('change'));}
   setPaired(Boolean(result.paired));
   if(result.lockHelperInstalled!==undefined)window.mandoLockChanged(result.lockHelperInstalled);
   if(result.zoomHelperInstalled!==undefined)window.mandoZoomChanged(result.zoomHelperInstalled);

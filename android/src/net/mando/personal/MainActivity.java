@@ -67,6 +67,7 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         infrared = new InfraredController(this);
         deviceStore = new DeviceStore(this);
+        if("own".equals(getPreferences(MODE_PRIVATE).getString("lastServerMode","official")))client=ownClient;
         restoreResumeCheckpoint();
         if(Build.VERSION.SDK_INT>=30)getWindow().setDecorFitsSystemWindows(false);
         LinearLayout root=new LinearLayout(this);
@@ -500,6 +501,7 @@ public final class MainActivity extends Activity {
                                 officialClient.close();ownClient.close();throw new IOException("Conexión cancelada");
                             }
                             client=own ? ownClient : officialClient;
+                            getPreferences(MODE_PRIVATE).edit().putString("lastServerMode",mode).apply();
                             result.put("ok", true).put("mode",own ? "own" : "official");
                             result.put("version", own ? "Mando v1 TLS" : String.valueOf(officialClient.serverVersion()));
                             result.put("directLock",own).put("dryRun",own && ownClient.isDryRun());
