@@ -27,12 +27,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-final class RemoteClient {
+final class RemoteClient implements InputClient {
     static final int PORT = 1978;
     private volatile Socket socket;
     private volatile DatagramSocket commandSocket;
     private volatile boolean ready;
     private int version;
+    private volatile Network connectedNetwork;
+    private volatile InetAddress connectedAddress;
+    private volatile Socket clipboardSocket;
+    private double lastClipboardTimestamp;
+    private long lastWheelAt=-1000;
     private static final Map<String,String> KEYS = new HashMap<>();
     static {
         String[][] pairs = {{"ESC","esc"},{"TAB","tab"},{"ENTER","RTN"},{"BACKSPACE","BAS"},
@@ -45,11 +50,13 @@ final class RemoteClient {
         for(char c='0';c<='9';c++) KEYS.put(String.valueOf(c),String.valueOf(c));
     }
 
-    boolean isConnected() { Socket s=socket; return ready && s!=null && !s.isClosed(); }
+    public boolean isConnected() { Socket s=socket; return ready && s!=null && !s.isClosed(); }
     int serverVersion() { return version; }
 
-    void close() {
-        ready=false;
+    public void close() {
+        ready=false;connectedNetwork=null;connectedAddress=null;
+        Socket dock=clipboardSocket;clipboardSocket=null;
+        if(dock!=null)try{dock.close();}catch(IOException ignored){}
         DatagramSocket previousCommand=commandSocket;commandSocket=null;
         if(previousCommand!=null)previousCommand.close();
         Socket previous=socket; socket=null;
@@ -107,7 +114,7 @@ final class RemoteClient {
             udpCandidate.bind(new InetSocketAddress(0));
             udpCandidate.connect(address,PORT);
             if(socket!=candidate) throw new IOException("Conexión cancelada");
-            version=handshake.getInt("version"); ready=true;candidate.setSoTimeout(0);
+            version=handshake.getInt("version");lastWheelAt=-1000; connectedNetwork=network;connectedAddress=address;ready=true;candidate.setSoTimeout(0);
             Thread monitor=new Thread(() -> {
                 try {byte[] buffer=new byte[512]; while(socket==candidate && candidate.getInputStream().read(buffer)!=-1) { }}
                 catch(IOException ignored) { }
@@ -119,6 +126,28 @@ final class RemoteClient {
             if(commandSocket==udpCandidate)commandSocket=null;
             if(socket==candidate) close(); else try{candidate.close();}catch(IOException ignored){ }
             throw error;
+        }
+    }
+
+    synchronized String clipboard(String text)throws Exception {
+        Network network=connectedNetwork;InetAddress address=connectedAddress;
+        if(!isConnected()||network==null||address==null)throw new IOException("Vuelve a conectar al PC");
+        byte[] key=new byte[8],mask=new byte[1];
+        java.security.SecureRandom random=new java.security.SecureRandom();random.nextBytes(key);random.nextBytes(mask);
+        double timestamp=Math.max(System.currentTimeMillis()/1000.0,lastClipboardTimestamp+0.000001);
+        lastClipboardTimestamp=timestamp;
+        byte[] frame=ClipboardProtocol.request(text,timestamp,mask[0],key);
+        Socket dock=new Socket();clipboardSocket=dock;
+        try {
+            network.bindSocket(dock);dock.setSoTimeout(4000);dock.setTcpNoDelay(true);
+            dock.connect(new InetSocketAddress(address,1979),3000);
+            if(!isConnected()||connectedNetwork!=network)throw new IOException("Conexión cancelada");
+            dock.getOutputStream().write(frame);dock.getOutputStream().flush();
+            // Official writes have no acknowledgement: report sent, never verified success.
+            return text==null?ClipboardProtocol.read(new DataInputStream(dock.getInputStream()),key):null;
+        } finally {
+            if(clipboardSocket==dock)clipboardSocket=null;
+            try{dock.close();}catch(IOException ignored){}
         }
     }
 
@@ -142,7 +171,7 @@ final class RemoteClient {
         return (int)n;
     }
 
-    void action(JSONObject data) throws Exception {
+    public void action(JSONObject data) throws Exception {
         String type=data.getString("type");
         if("move".equals(type)) {
             sendCommand(Protocol.move(number(data,"dx",-500,500),number(data,"dy",-500,500)));
@@ -151,9 +180,17 @@ final class RemoteClient {
             String code="left".equals(button)?"l":"right".equals(button)?"r":null;
             if(code==null) throw new IOException("Botón no permitido");
             sendCommand(Protocol.frame("mos","R "+code+" d"),Protocol.frame("mos","R "+code+" u"));
-        } else if("scroll".equals(type)) {
+        } else if("scroll".equals(type)||"scroll_horizontal".equals(type)) {
             int steps=number(data,"steps",-10,10);
-            for(int i=0;i<Math.abs(steps);i++) sendCommand(Protocol.frame("mos",steps>0?"w 0":"w 1"));
+            byte[] frame=Protocol.wheel("scroll_horizontal".equals(type),steps>0);
+            if(steps!=0) {
+                long now=android.os.SystemClock.elapsedRealtime();
+                // Server 531 uses magnitude 0 after >=80ms idle, then 8 units by default.
+                // Prime idle once, then send a single high-resolution sample per UI increment.
+                int samples=Math.abs(steps)+(now-lastWheelAt>=70?1:0);
+                for(int i=0;i<samples;i++)sendCommand(frame);
+                lastWheelAt=android.os.SystemClock.elapsedRealtime();
+            }
         } else if("task_view".equals(type)) {
             sendCommand(Protocol.taskView());
         } else if("zoom".equals(type)) {
@@ -204,6 +241,33 @@ final class RemoteClient {
         sendCommand(Protocol.frame("key",payload.toString()));
     }
 
+    private JSONArray discoverOwn(Network network,int base,int count,int localInt) throws Exception {
+        JSONArray found=new JSONArray();Set<String> seen=new HashSet<>();
+        String nonce=java.util.UUID.randomUUID().toString().replace("-","");
+        byte[] request=("MANDO_DISCOVER_V1 "+nonce).getBytes(StandardCharsets.US_ASCII);
+        try(DatagramSocket probe=new DatagramSocket(null)) {
+            network.bindSocket(probe);probe.bind(new InetSocketAddress(0));probe.setSoTimeout(200);probe.setBroadcast(true);
+            for(int index=1;index<count;index++) {
+                int value=base+index;if(value==localInt)continue;
+                InetAddress destination=InetAddress.getByAddress(new byte[]{(byte)(value>>>24),(byte)(value>>>16),(byte)(value>>>8),(byte)value});
+                probe.send(new DatagramPacket(request,request.length,destination,1980));
+            }
+            long until=android.os.SystemClock.elapsedRealtime()+2200;
+            for(int received=0;received<64&&found.length()<16&&android.os.SystemClock.elapsedRealtime()<until;) {
+                DatagramPacket reply=new DatagramPacket(new byte[128],128);
+                try{probe.receive(reply);}catch(java.net.SocketTimeoutException wait){continue;}
+                received++;
+                String value=new String(reply.getData(),0,reply.getLength(),StandardCharsets.US_ASCII);
+                if(!value.matches("MANDO_SERVER_V1 "+nonce+" [0-9]{4,5}"))continue;
+                int port=Integer.parseInt(value.substring(value.lastIndexOf(' ')+1));if(port<1024||port>65535)continue;
+                String host=reply.getAddress().getHostAddress();
+                try{privateAddress(host);}catch(IOException invalid){continue;}
+                if(seen.add(host))found.put(new JSONObject().put("host",host).put("port",port).put("mode","own").put("version","Mando"));
+            }
+        }
+        return found;
+    }
+
     JSONArray scan(Network network,LinkProperties properties) throws Exception {
         if(properties==null) throw new IOException("No se puede leer la red Wi-Fi");
         try(Socket test=new Socket()) {network.bindSocket(test);}
@@ -215,27 +279,6 @@ final class RemoteClient {
         if(prefix>30) throw new IOException("Red punto a punto: introduce la IP manualmente");
         int localInt=((local[0]&255)<<24)|((local[1]&255)<<16)|((local[2]&255)<<8)|(local[3]&255);
         int mask=-1<<(32-prefix), base=localInt&mask, count=1<<(32-prefix);
-        final List<JSONObject> found=Collections.synchronizedList(new ArrayList<JSONObject>());
-        ExecutorService probes=Executors.newFixedThreadPool(16);
-        List<Future<?>> futures=new ArrayList<>();
-        try {
-            for(int host=1;host<count-1;host++) {
-                int value=base+host;if(value==localInt)continue;
-                final byte[] ip={(byte)(value>>>24),(byte)(value>>>16),(byte)(value>>>8),(byte)value};
-                InetAddress address=InetAddress.getByAddress(ip);
-                try {privateAddress(address.getHostAddress());}catch(IOException skip){continue;}
-                futures.add(probes.submit(() -> {
-                    try(Socket s=new Socket()) {
-                        network.bindSocket(s);s.setSoTimeout(600);
-                        s.connect(new InetSocketAddress(address,PORT),350);
-                        JSONObject greeting=readHandshake(s);
-                        found.add(new JSONObject().put("host",address.getHostAddress()).put("version",greeting.getInt("version"))
-                                .put("requiresPassword",!"nop".equals(greeting.getString("auth"))));
-                    }catch(Exception ignored){ }
-                }));
-            }
-            for(Future<?> probe:futures) probe.get(3,TimeUnit.SECONDS);
-        } finally {probes.shutdownNow();}
-        return new JSONArray(found);
+        return discoverOwn(network,base,count,localInt);
     }
 }

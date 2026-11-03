@@ -4,6 +4,12 @@
 
 La rama de gestos prepara **0.4.2-rc.2**: zoom visual de Firefox mediante el complemento opcional [MandoTouchZoom](windows-zoom/README.md), más tres dedos hacia arriba para abrir la Vista de tareas. El pellizco se distingue del scroll. Pendiente de confirmación física; `v0.4.1` sigue siendo la release estable.
 
+## Servidor propio integrado (experimental)
+
+**0.5.0-alpha.2** reúne servidor Windows independiente, gestos, bloqueo directo y broker local para la sesión bloqueada. El paquete incluye `MandoServer.exe`, por lo que no necesita Python instalado. [Instalación completa](windows-server/README.md).
+
+La autorización del móvil se recuerda con Android Keystore y se puede revocar desde Windows. El servicio local se instala una vez con permisos de administrador; el servidor de red corre como usuario normal. Compilación, instalación e identidad IPC pasan en un runner Windows, además de tests de TLS y dispositivos. Falta confirmar físicamente la entrada en Winlogon y los gestos en el PC. El servidor debe estar abierto antes de bloquear: aún no se cubren el primer inicio de sesión, UAC ni RDP. `v0.4.1` conserva el estado estable.
+
 ## Funciones
 
 - Control: touchpad, clic izquierdo/derecho, scroll con dos dedos y teclado Android accesible desde el botón central.
@@ -17,7 +23,7 @@ La rama de gestos prepara **0.4.2-rc.2**: zoom visual de Firefox mediante el com
 
 Android 9 o posterior. Para controlar el PC, instala por separado el [servidor oficial Remote Mouse](https://www.remotemouse.net/downloads/RemoteMouse.exe) en Windows, versión 5.30 o posterior. Mando no modifica ni incluye esa aplicación. El PC y el móvil deben poder comunicarse por la Wi-Fi local, TCP/UDP 1978.
 
-Instala la APK, abre el servidor en Windows y pulsa **Buscar en Wi-Fi** en Mando, o introduce la IP privada del PC y pulsa **Conectar**. Si una VPN bloquea la conexión local, excluye solo Mando de ese túnel. Al salir de la app se desconecta; vuelve a conectar cuando regreses.
+Instala la APK, abre el servidor en Windows y pulsa **Buscar en Wi-Fi** en Mando, o introduce la IP privada del PC y pulsa **Conectar**. Si una VPN bloquea la conexión local, excluye solo Mando de ese túnel. La APK 0.5.0-alpha.3 recupera automáticamente el último PC si vuelves antes de 20 minutos. Mantiene la última vista mientras reconecta y solo muestra Conectar si falla o caduca el plazo. Desconectar cancela esa recuperación.
 
 Para bloquear el PC, sigue [la instalación de MandoLock](windows-lock/README.md). Para IR, apunta el emisor del móvil al televisor. No hace falta instalar Lean Remote: solo se incorporan las cinco señales del perfil solicitado.
 
@@ -58,3 +64,7 @@ node android/tests/pinch-zoom.cjs
 ```
 
 El script usa `playwright` por defecto. `PLAYWRIGHT_MODULE` permite indicar un módulo local y `MANDO_CHROMIUM` la ruta de Chromium. Simula el puente Android; no emite controles a un PC.
+
+## Descargar desde el portal
+
+[Descargas de Mando](https://www.sherlockhomeless.net/apps/mando/) — APK actual de pruebas, APK estable anterior y servidor Windows experimental. Acceso con el Authentik del portal. El despliegue Compose y la raíz estática acotada están en [web-downloads](web-downloads/README.md).

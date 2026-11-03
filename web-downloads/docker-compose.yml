@@ -1,0 +1,33 @@
+services:
+  mando-downloads:
+    image: ${DOWNLOAD_IMAGE}
+    container_name: mando-downloads
+    restart: unless-stopped
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro,Z
+      - ./public:/usr/share/nginx/html:ro,Z
+    networks: [proxy]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/healthz']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "${TRAEFIK_DOCKER_NETWORK}"
+      traefik.http.routers.mando-downloads.rule: "Host(`${DOWNLOAD_DOMAIN}`) && (Path(`/apps/mando`) || PathPrefix(`/apps/mando/`))"
+      traefik.http.routers.mando-downloads.priority: "100"
+      traefik.http.routers.mando-downloads.entrypoints: "${TRAEFIK_ENTRYPOINT_SECURE}"
+      traefik.http.routers.mando-downloads.tls: "true"
+      traefik.http.routers.mando-downloads.tls.certresolver: "${TRAEFIK_CERTRESOLVER}"
+      traefik.http.routers.mando-downloads.middlewares: "crowdsec-bouncer@file,${TRAEFIK_AUTH_MIDDLEWARE}"
+      traefik.http.services.mando-downloads.loadbalancer.server.port: "8080"
+networks:
+  proxy:
+    external: true

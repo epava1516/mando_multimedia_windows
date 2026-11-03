@@ -1,4 +1,4 @@
-# Mando Android · candidata 0.4.2-rc.2
+# Mando Android · experimental 0.5.0-alpha.4
 
 APK propio, paquete `net.mando.personal`, nombre **Mando**. No sustituye ni modifica Remote Mouse. Requiere Android 9 o posterior y el servidor oficial de Windows 5.30 o posterior con TCP y UDP 1978 accesibles.
 
@@ -16,7 +16,7 @@ Corrección de transporte: TCP sirve para el saludo y la supervisión de conexi�
 2. En Mando, introduce la IP privada del PC y pulsa **Conectar**. Usa la dirección de tu propio ordenador; el campo se puede editar.
 3. Para descubrirlo si cambia de red, pulsa **Buscar en Wi-Fi**: comprueba únicamente TCP 1978, hasta 254 direcciones del segmento Wi-Fi, y muestra servidores cuyo saludo `SIN` anuncia Windows compatible. En redes mayores que /24 la búsqueda se limita al /24 que contiene al móvil; puedes introducir cualquier otra IP privada manualmente.
 
-El socket se vincula a la red Wi-Fi física, no a la VPN. Si la VPN no permite ese acceso, excluye únicamente **Mando** en la configuración del túnel; no es necesario desactivar la VPN para las otras aplicaciones. Al salir de Mando se cierra la conexión. Al regresar, pulsa Conectar de nuevo.
+El socket se vincula a la red Wi-Fi física, no a la VPN. Si la VPN no permite ese acceso, excluye únicamente **Mando** en la configuración del túnel; no es necesario desactivar la VPN para las otras aplicaciones. Al salir de Mando se cierra el transporte y se descartan las entradas pendientes. Si vuelves antes de 20 minutos se recupera automáticamente el último PC, sin repetir acciones; solo se muestra Conectar al fallar o caducar el plazo. Desconectar cancela la recuperación.
 
 Esta versión admite el modo `nop` anunciado por el servidor del usuario. Si el servidor requiere su propia contraseña, la app lo indica y cierra la conexión: no omite autenticación ni desactiva contraseñas del servidor.
 
@@ -65,3 +65,45 @@ Separa dos dedos sobre el touchpad para ampliar visualmente una zona de Firefox 
 La APK envía Ctrl+Alt+F12/F11 completos al servidor oficial; los accesos directos de Windows lanzan un gesto táctil de dos contactos. El complemento actúa solo con Firefox en primer plano y el cursor en su área cliente; su recepción por Firefox necesita prueba física. No añade un servidor de red.
 
 El movimiento paralelo de dos dedos conserva el scroll. El gesto se clasifica tras un umbral y no mezcla zoom con scroll hasta levantar los dedos. Tres dedos hacia arriba abren una vez la Vista de tareas mediante Win+Tab para seleccionar ventanas o escritorios virtuales. La sensibilidad del cursor no altera los umbrales de gestos.
+
+## Servidor propio integrado (0.5.0-alpha.2)
+
+Selecciona **Mando propio (experimental)** y pega una vez el código del paquete [Windows completo](../windows-server/README.md). Android verifica la huella del certificado por TLS antes de enviar el PIN. Después guarda únicamente la autorización de dispositivo con AES-256-GCM y Android Keystore, no una contraseña de Windows.
+
+Para volver, selecciona el servidor propio y pulsa Conectar con el código vacío. Esto permite reconectar estando el PC bloqueado si el servidor sigue abierto. Desde alpha.3, la recuperación de conexión es automática durante 20 minutos; nunca se repiten acciones. Ajustes → Olvidar PC propio borra esa autorización local; REVOKE en la consola Windows revoca dispositivos y sesiones.
+
+El paquete Windows integra bloqueo, zoom y un broker local restringido para Winlogon. Se anuncia la disponibilidad del componente; eso no sustituye la prueba física de entrada en Windows. El servidor debe iniciarse en la cuenta autorizada antes de bloquear; no hay control de primer login, UAC ni RDP. La opción oficial y su búsqueda Wi-Fi se conservan; descubrimiento del servidor propio queda pendiente.
+
+## Recuperación de sesión (0.5.0-alpha.3)
+
+El plazo se cuenta desde la última salida con una conexión activa, con reloj monotónico. Un intento interrumpido o fallido no renueva el plazo. Los metadatos no secretos del destino se conservan de forma privada, asociados al contador de arranques del móvil; un reinicio invalida el plazo. La autorización del servidor propio sigue en Android Keystore.
+
+Durante la recuperación se mantiene la vista anterior y se deshabilita la entrada al PC. Si la actividad se recrea, muestra Recuperando conexión hasta conocer el resultado. Solo un fallo real o caducidad muestra la pantalla de conexión. No hay sockets ni comandos activos en segundo plano, ni reenvío de pulsaciones o gestos pendientes. Desconectar interrumpe un intento en curso y elimina el destino de recuperación. IR sigue siendo independiente.
+
+## Bordes de desplazamiento (0.5.0-alpha.4)
+
+Arrastra un dedo por el borde derecho para rueda vertical: hacia abajo baja la página. El borde inferior desplaza horizontalmente a derecha/izquierda. El eje se elige al iniciar el contacto y se conserva aunque el dedo salga del borde; tocarlo sin arrastrar no genera clics. Las zonas de 44px están dentro del touchpad, sin añadir filas ni scroll a la pantalla.
+
+El scroll de dos dedos en el centro mantiene el movimiento natural del contenido. Se espera a que ambos dedos se muevan para evitar interpretar actualizaciones desfasadas como un pellizco. Un gesto iniciado en un borde no se mezcla con zoom ni movimiento del cursor.
+
+El servidor oficial tiene rueda horizontal nativa (`w 2`/`w 3`), por lo que no se deja Shift pulsado entre datagramas. Se compensa su muestra de rueda nula tras reposo y se agrupan muestras de alta resolución; no se reintentan comandos tras errores. La magnitud sigue dependiendo de su ajuste de scroll. Evidencia en `../evidence/HORIZONTAL_SCROLL.md`. Para el servidor propio actualiza también el paquete Windows; con uno antiguo la app avisa y conserva la conexión.
+
+## Volumen mantenido y portapapeles (alpha.7)
+
+Mantén + o − para repetir volumen en Control o IR. Soltar, cambiar de pestaña o salir detiene la repetición.
+
+En Teclado → Portapapeles (también al final de la barra sobre el teclado Android), elige Móvil → PC o PC → móvil después de copiar texto en el origen. Solo texto, máximo 1000 unidades UTF-16; no pega en la ventana activa ni sincroniza en segundo plano. El oficial usa su puerto TCP1979 y confirma únicamente el envío al escribir; requiere probar la recepción en Windows. El propio requiere servidor alpha.7 y Windows desbloqueado.
+
+## Búsqueda de Mando propio (alpha.10)
+
+Buscar en Wi-Fi localiza Mando propio y Remote Mouse. Elegir Mando propio solicita el código completo que muestra el icono de Windows; la búsqueda no autoriza por sí sola ni transmite PIN o tokens. Requiere actualizar el servidor Windows a alpha.10 para anunciar su presencia.
+
+## Emparejar por QR (alpha.12)
+
+Pulsa Escanear QR del PC sin necesidad de buscar antes en Wi-Fi. Concede cámara solo cuando lo solicite, apunta al QR de Mando Server y pulsa Conectar. El QR completa dirección, puerto e identidad del PC; no abre URLs ni ejecuta contenido. No se guardan fotos ni se envían imágenes.
+
+La autorización queda en Keystore. Para el mismo PC con otra IP, Buscar en Wi-Fi → elige el PC → Conectar conserva la identidad y reutiliza el vínculo; también puedes escanear el QR actualizado sin crear dispositivos duplicados. El permiso de cámara es opcional: se conserva la entrada manual.
+
+## Servidor único (alpha.13)
+
+La app utiliza siempre Mando Server. Se ha retirado el selector y la búsqueda del oficial; los vínculos guardados, QR, ajustes y recuperación se conservan.

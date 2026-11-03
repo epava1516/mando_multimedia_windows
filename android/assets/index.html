@@ -13,18 +13,18 @@
   <header><span class="brand"><span class="brand-mark" aria-hidden="true">m</span>mando</span><div class="header-actions"><span id="connection" class="connection">Sin vincular</span><button id="lock-pc" class="lock-icon" aria-label="Configurar bloqueo del PC" title="Configurar bloqueo" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></button></div></header>
   <div id="controls">
     <nav class="tabs" aria-label="Controles"><button class="tab active" data-tab="touch" aria-pressed="true">Control</button><button class="tab" data-tab="keyboard" aria-pressed="false">Teclado</button><button class="tab" data-tab="ir" aria-pressed="false" hidden>IR</button><button class="tab" data-tab="settings" aria-pressed="false">Ajustes</button></nav>
-  <section id="pairing" class="panel card pairing">
+  <section id="restoring" class="panel card restoring" role="status"><strong>Recuperando conexión…</strong></section>
+  <section id="pairing" class="panel card pairing" hidden>
     <h1>Conectar al PC</h1>
-    <p class="pairing-note">Servidor oficial de Remote Mouse · Wi-Fi</p>
-    <form id="pair-form"><label for="pin">IP del ordenador</label><div class="pair-row"><input id="pin" name="pin" type="text" inputmode="decimal" maxlength="15" autocomplete="off" required value="192.168.1.105"><button class="primary" id="pair-button">Conectar</button></div></form>
-    <button type="button" id="scan" class="full">Buscar en Wi-Fi</button>
+    <form id="pair-form"><label for="own-code" id="pair-label">Código del PC · también puedes usar el QR</label><div class="pair-row"><input id="own-code" type="password" autocomplete="off" maxlength="140" placeholder="Código mando1 del PC" aria-label="Código de emparejamiento del PC" required><button class="primary" id="pair-button">Conectar</button></div></form>
+    <div class="pair-actions"><button type="button" id="scan" class="full">Buscar en Wi-Fi</button><button type="button" id="scan-qr" class="full">Escanear QR del PC</button></div>
     <div id="servers" class="servers" aria-live="polite"></div>
     <div id="server-pages" class="server-pages" hidden><button id="server-prev" aria-label="Servidores anteriores">←</button><span id="server-page-label"></span><button id="server-next" aria-label="Más servidores">→</button></div>
-    <p class="privacy-note">El vault sigue desactivado. No envíes contraseñas por este canal.</p>
+    <p class="privacy-note">Escanea el QR una vez. El PC queda recordado para las siguientes conexiones.</p>
   </section>
 
     <section id="touch" class="panel card" hidden>
-      <div id="touchpad" class="touchpad" aria-label="Panel táctil: mueve un dedo para mover el cursor, toca para clic izquierdo y usa dos dedos para desplazar o pellizcar para zoom; desliza tres dedos hacia arriba para ver ventanas y escritorios"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7z"/></svg><strong>Desliza para mover</strong><span>Un toque: clic · 2 dedos: scroll / zoom · 3 ↑: ventanas</span></div>
+      <div id="touchpad" class="touchpad" aria-label="Panel táctil: mueve un dedo para mover el cursor, toca para clic izquierdo y usa dos dedos para desplazar o pellizcar para zoom; desliza tres dedos hacia arriba para ver ventanas y escritorios"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7z"/></svg><strong>Desliza para mover</strong><span>Un toque: clic · 2 dedos: scroll / zoom · 3 ↑: ventanas</span><div class="scroll-edge scroll-edge-y" data-wheel-axis="vertical" role="group" aria-label="Desplazamiento vertical: desliza un dedo por este borde"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 5-5 5 5M12 2v20m-5-5 5 5 5-5"/></svg></div><div class="scroll-edge scroll-edge-x" data-wheel-axis="horizontal" role="group" aria-label="Desplazamiento horizontal: desliza un dedo por este borde"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7-5 5 5 5M2 12h20m-5-5 5 5-5 5"/></svg></div></div>
       <div class="mouse-buttons"><button data-click="left">Clic izquierdo</button><button id="control-keyboard" aria-label="Abrir teclado Android" aria-expanded="false" title="Abrir teclado Android"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M5 9h2m3 0h2m3 0h4M5 12h2m3 0h2m3 0h4M7 16h10"/></svg></button><button data-click="right">Clic derecho</button></div>
       <div id="media" class="media-strip" role="group" aria-label="Reproducción y volumen">
       <div class="playback">
@@ -38,7 +38,7 @@
       </div>
     </section>
     <section id="keyboard" class="panel card" hidden>
-      <button type="button" id="show-keyboard" class="primary full">Abrir teclado Android</button>
+      <div class="keyboard-tools"><button type="button" id="show-keyboard" class="primary full">Abrir teclado Android</button><button type="button" id="clipboard">Portapapeles</button></div>
       <div class="keyboard-groups" aria-label="Grupos del teclado"><button data-keyboard-page="functions" aria-pressed="true">F1–F12</button><button data-keyboard-page="navigation" aria-pressed="false">Navegación</button><button data-keyboard-page="shortcuts" aria-pressed="false">Atajos</button><button data-keyboard-page="text" aria-pressed="false">Texto</button></div>
       <div id="modifiers" class="modifiers" aria-label="Modificadores para la siguiente tecla"><button data-mod="CTRL" aria-pressed="false">Ctrl</button><button data-mod="ALT" aria-pressed="false">Alt</button><button data-mod="SHIFT" aria-pressed="false">Shift</button><button data-mod="WIN" aria-pressed="false">Win</button></div>
       <p class="sr-only" id="modifier-hint">Se aplican a la siguiente combinación.</p>
@@ -64,8 +64,8 @@
       <div class="sensitivity-presets"><button data-sensitivity="0.35">Preciso</button><button data-sensitivity="0.65">Suave</button><button data-sensitivity="1.25">Rápido</button></div>
       <p class="hint">La sensibilidad se guarda. El desplazamiento se hace con dos dedos.</p>
       <label class="ir-visibility" for="show-ir-tab"><span>Mostrar pestaña IR</span><input type="checkbox" id="show-ir-tab" role="switch"></label>
-      <div class="settings-tools"><button id="lock-setup">Bloqueo del PC</button><button id="zoom-setup">Configurar zoom visual</button></div>
-    <footer><span id="connection-help">Servidor oficial · Wi-Fi</span><button id="disconnect" class="text-button">Desconectar</button></footer>
+      <div class="settings-tools"><button id="lock-setup">Bloqueo del PC</button><button id="zoom-setup">Configurar zoom visual</button><button id="forget-own" hidden>Olvidar PC propio</button></div>
+    <footer><span id="connection-help">Mando · TLS</span><button id="disconnect" class="text-button">Desconectar</button></footer>
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </section>
 

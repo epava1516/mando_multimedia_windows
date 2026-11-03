@@ -3,6 +3,9 @@ package net.mando.personal;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -15,6 +18,9 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import android.widget.Button;
+import android.widget.HorizontalScrollView;
+import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import android.widget.Toast;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
@@ -36,20 +42,32 @@ import java.util.concurrent.TimeUnit;
 public final class MainActivity extends Activity {
     private static final String LOCAL = "https://mando.local/";
     private WebView web;
+    private String pendingQr;
+    private boolean webReady;
     private RemoteKeyboard editor;
     private LinearLayout keyboardRow;
-    private final RemoteClient client = new RemoteClient();
+    private final LinkedHashSet<String> imeModifiers=new LinkedHashSet<>();
+    private final Map<String,Button> imeModifierButtons=new LinkedHashMap<>();
+    private final RemoteClient discoveryClient = new RemoteClient();
+    private final OwnClient ownClient = new OwnClient();
+    private final InputClient client = ownClient;
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<Runnable>(32));
     private volatile boolean destroyed;
     private volatile boolean foreground;
     private InfraredController infrared;
+    private DeviceStore deviceStore;
+    private final ResumeWindow resume = new ResumeWindow();
+    private final Object resumeStoreLock=new Object();
+    private volatile boolean resuming;
     private volatile boolean imeVisible;
     private boolean zoomSetupShowing;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         infrared = new InfraredController(this);
+        deviceStore = new DeviceStore(this);
+        restoreResumeCheckpoint();
         if(Build.VERSION.SDK_INT>=30)getWindow().setDecorFitsSystemWindows(false);
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -57,21 +75,25 @@ public final class MainActivity extends Activity {
         web = new WebView(this);
         root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         keyboardRow=new LinearLayout(this);
+        keyboardRow.setOrientation(LinearLayout.VERTICAL);
         keyboardRow.setPadding(12,8,12,8);
+        LinearLayout editorRow=new LinearLayout(this);
         keyboardRow.setBackgroundColor(0xff193030);
         editor=new RemoteKeyboard(this,new RemoteKeyboard.Sink() {
             public void text(String value) {
-                try {sendKeyboard(new JSONObject().put("type","text").put("text",value));}catch(Exception ignored){ }
+                sendImeText(value);
             }
             public void key(String value) {
-                try {sendKeyboard(new JSONObject().put("type","key").put("key",value));}catch(Exception ignored){ }
+                sendImeKey(value);
             }
         });
-        keyboardRow.addView(editor,new LinearLayout.LayoutParams(0,-2,1));
+        editorRow.addView(editor,new LinearLayout.LayoutParams(0,-2,1));
         Button closeKeyboard=new Button(this);
         closeKeyboard.setText("Cerrar");
         closeKeyboard.setOnClickListener(view -> showKeyboard(false));
-        keyboardRow.addView(closeKeyboard,new LinearLayout.LayoutParams(-2,-2));
+        editorRow.addView(closeKeyboard,new LinearLayout.LayoutParams(-2,-2));
+        keyboardRow.addView(editorRow,new LinearLayout.LayoutParams(-1,-2));
+        addImeKeyStrip();
         keyboardRow.setVisibility(View.GONE);
         root.addView(keyboardRow,new LinearLayout.LayoutParams(-1,-2));
         setContentView(root);
@@ -82,6 +104,7 @@ public final class MainActivity extends Activity {
                 boolean visible=insets.isVisible(WindowInsets.Type.ime());
                 if(imeVisible!=visible) {
                     imeVisible=visible;
+                    if(!visible)resetImeModifiers();
                     web.post(() -> {
                         if(!destroyed)web.evaluateJavascript("window.mandoImeChanged && window.mandoImeChanged("+visible+")",null);
                     });
@@ -101,6 +124,10 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         web.setBackgroundColor(0xff102323);
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view,String url) {
+                webReady=true;deliverQr();
+                if(foreground&&resuming)web.evaluateJavascript("window.mandoResuming && window.mandoResuming()",null);
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return true; // No page navigation, external hosts, or executable target content.
             }
@@ -126,6 +153,151 @@ public final class MainActivity extends Activity {
         web.loadUrl(LOCAL);
     }
 
+    @Override protected void onResume(){super.onResume();deliverQr();}
+    @Override protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data);
+        if(request!=4107||result!=RESULT_OK||data==null)return;
+        try{pendingQr=PairingCode.validate(data.getStringExtra("code"));deliverQr();}
+        catch(IOException invalid){Toast.makeText(this,"El QR no contiene un código de Mando válido",Toast.LENGTH_LONG).show();}
+    }
+    private void deliverQr() {
+        if(!foreground||!webReady||pendingQr==null||destroyed)return;
+        String value=pendingQr;pendingQr=null;
+        web.evaluateJavascript("window.mandoQrScanned && window.mandoQrScanned("+JSONObject.quote(value)+")",null);
+    }
+
+    private int dp(int value) {return Math.round(value*getResources().getDisplayMetrics().density);}
+
+    private void resetImeModifiers() {
+        imeModifiers.clear();
+        for(Button button:imeModifierButtons.values()) {
+            button.setSelected(false);button.setTextColor(0xffeff7f2);
+            button.setContentDescription(button.getText()+", desactivado");
+        }
+    }
+
+    private void sendImeKey(String name) {
+        JSONArray selected=new JSONArray();
+        for(String modifier:imeModifiers)selected.put(modifier);
+        resetImeModifiers();
+        try {sendKeyboard(new JSONObject().put("type","key").put("key",name).put("modifiers",selected));}
+        catch(Exception ignored) { }
+    }
+
+    private void sendImeText(String value) {
+        if(imeModifiers.isEmpty()) {
+            try {sendKeyboard(new JSONObject().put("type","text").put("text",value));}catch(Exception ignored) { }
+        } else if(value.matches("[a-zA-Z0-9 ]")) {
+            sendImeKey(" ".equals(value)?"SPACE":value.toUpperCase(java.util.Locale.ROOT));
+        } else {
+            resetImeModifiers();
+            Toast.makeText(this,"La combinación requiere una letra, número o tecla de la barra",Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void addImeKeyStrip() {
+        HorizontalScrollView scroll=new HorizontalScrollView(this);
+        scroll.setContentDescription("Teclas extendidas. Desliza horizontalmente para ver más");
+        scroll.setHorizontalScrollBarEnabled(true);
+        LinearLayout strip=new LinearLayout(this);
+        String[][] keys={{"LEFT","←"},{"DOWN","↓"},{"UP","↑"},{"RIGHT","→"},
+            {"CTRL","Ctrl"},{"ALT","Alt"},{"SHIFT","Shift"},{"WIN","Win"},
+            {"ESC","Esc"},{"TAB","Tab"},{"HOME","Inicio"},{"END","Fin"},
+            {"PAGEUP","Re Pág"},{"PAGEDOWN","Av Pág"},{"DELETE","Supr"},{"CLIPBOARD","Portapapeles"}};
+        for(String[] item:keys) {
+            final String name=item[0];
+            Button button=new Button(this);button.setText(item[1]);
+            button.setTextSize(14);button.setTextColor(0xffeff7f2);
+            button.setMinWidth(dp(48));button.setMinimumWidth(dp(48));
+            button.setFocusable(false);button.setAllCaps(false);
+            String label="LEFT".equals(name)?"Flecha izquierda":"RIGHT".equals(name)?"Flecha derecha":
+                "UP".equals(name)?"Flecha arriba":"DOWN".equals(name)?"Flecha abajo":item[1];
+            button.setContentDescription(label);
+            boolean modifier="CTRL".equals(name)||"ALT".equals(name)||"SHIFT".equals(name)||"WIN".equals(name);
+            if(modifier)imeModifierButtons.put(name,button);
+            button.setOnClickListener(view -> {
+                if("CLIPBOARD".equals(name)){showClipboard();return;}
+                editor.finishAndSend();
+                if(modifier) {
+                    if(!imeModifiers.remove(name))imeModifiers.add(name);
+                    boolean selected=imeModifiers.contains(name);
+                    button.setSelected(selected);button.setTextColor(selected?0xffc7ef9e:0xffeff7f2);
+                    button.setContentDescription(button.getText()+(selected?", activado":", desactivado"));
+                } else sendImeKey(name);
+            });
+            LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-2,dp(48));
+            params.setMargins(0,0,dp(4),0);strip.addView(button,params);
+        }
+        scroll.addView(strip);keyboardRow.addView(scroll,new LinearLayout.LayoutParams(-1,dp(52)));
+        resetImeModifiers();
+    }
+
+    private void showClipboard() {
+        if(!foreground || resuming || !client.isConnected()) {
+            Toast.makeText(this,"Conecta primero con el PC",Toast.LENGTH_SHORT).show();return;
+        }
+        new AlertDialog.Builder(this).setTitle("Compartir portapapeles")
+            .setItems(new String[]{"Móvil → PC", "PC → móvil"},(dialog,which)->exchangeClipboard(which==0)).show();
+    }
+
+    private static String clipboardError(Exception error) {
+        if(error instanceof java.net.SocketTimeoutException)
+            return "CLIP-TIMEOUT: El servidor no devolvió el portapapeles a tiempo. Comprueba que Windows está desbloqueado";
+        if(error instanceof java.io.EOFException)
+            return "CLIP-CLOSED: El servidor cerró la conexión sin completar la respuesta";
+        String message=error.getMessage();
+        if(message!=null && message.startsWith("CLIP-") && message.length()<250)return message;
+        return "CLIP-CONNECTION: No se pudo completar la transferencia. Comprueba la conexión y que el servidor propio esté actualizado";
+    }
+
+    private static String boundedClipboard(String value) throws IOException {
+        if(value==null || value.length()>1000 || value.indexOf(0)>=0)
+            throw new IOException("Solo texto, hasta 1000 caracteres");
+        for(int i=0;i<value.length();i++) {
+            char c=value.charAt(i);
+            if(Character.isHighSurrogate(c)) {
+                if(++i>=value.length() || !Character.isLowSurrogate(value.charAt(i)))throw new IOException("Texto inválido");
+            } else if(Character.isLowSurrogate(c))throw new IOException("Texto inválido");
+        }
+        return value;
+    }
+
+    private void exchangeClipboard(boolean toPc) {
+        final InputClient target=client;
+        final long stamp=resume.generation(),requested=android.os.SystemClock.elapsedRealtime();
+        final ClipboardManager clipboard=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+        final String text;
+        try {
+            if(toPc) {
+                ClipData clip=clipboard.getPrimaryClip();
+                if(clip==null || clip.getItemCount()==0 || clip.getItemAt(0).getText()==null)
+                    throw new IOException("Copia primero un texto en el móvil");
+                text=boundedClipboard(clip.getItemAt(0).getText().toString());
+            } else text=null;
+            worker.execute(()->{
+                try {
+                    if(!foreground||resuming||!resume.current(stamp)||client!=target||android.os.SystemClock.elapsedRealtime()-requested>5000)return;
+                    String result=ownClient.clipboard(text);
+                    final String received=toPc?null:boundedClipboard(result);
+                    runOnUiThread(()->{
+                        if(!foreground||!resume.current(stamp)||client!=target)return;
+                        if(!toPc)clipboard.setPrimaryClip(ClipData.newPlainText("Mando",received));
+                        Toast.makeText(this,toPc?"Texto copiado al portapapeles del PC":"Texto copiado al portapapeles del móvil",Toast.LENGTH_SHORT).show();
+                    });
+                } catch(Exception error) {
+                    final String reason=clipboardError(error);
+                    runOnUiThread(()->{
+                        if(foreground&&resume.current(stamp))new AlertDialog.Builder(this)
+                            .setTitle(toPc?"Portapapeles: móvil → PC":"Portapapeles: PC → móvil")
+                            .setMessage(reason).setPositiveButton("Aceptar",null).show();
+                    });
+                }
+            });
+        } catch(Exception error) {
+            Toast.makeText(this,"Copia un texto de hasta 1000 caracteres y vuelve a intentarlo",Toast.LENGTH_LONG).show();
+        }
+    }
+
     private WebResourceResponse blocked() {
         return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", new HashMap<String,String>(), new ByteArrayInputStream(new byte[0]));
     }
@@ -138,19 +310,22 @@ public final class MainActivity extends Activity {
             editor.post(() -> manager.showSoftInput(editor,InputMethodManager.SHOW_IMPLICIT));
         } else {
             editor.finishAndSend();
+            resetImeModifiers();
             manager.hideSoftInputFromWindow(editor.getWindowToken(),0);
             keyboardRow.setVisibility(View.GONE);web.requestFocus();
         }
     }
 
     private void sendKeyboard(final JSONObject action) {
-        if(destroyed || !client.isConnected())return;
+        if(destroyed || !foreground || resuming || !client.isConnected())return;
+        final long stamp=resume.generation();
         try {
             worker.execute(() -> {
+                if(!foreground||!resume.current(stamp))return;
                 try {client.action(action);}
                 catch(Exception error) {
                     runOnUiThread(() -> {
-                        if(!destroyed) {
+                        if(!destroyed && resume.current(stamp)) {
                             showKeyboard(false);
                             web.evaluateJavascript("window.mandoKeyboardError("+JSONObject.quote(safeMessage(error))+")",null);
                         }
@@ -179,6 +354,11 @@ public final class MainActivity extends Activity {
 
     private void showZoomSetup() {
         if(destroyed || isFinishing() || zoomSetupShowing)return;
+        if(client==ownClient) {
+            new AlertDialog.Builder(this).setTitle("Zoom integrado")
+                .setMessage("El paquete completo de Windows incluye el zoom visual. Coloca el cursor sobre Firefox y pellizca en Control. Si falta el componente, instala Instalar-MandoCompleto.ps1 y vuelve a conectar.")
+                .setPositiveButton("Cerrar",null).show();return;
+        }
         zoomSetupShowing = true;
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Zoom visual de Firefox")
             .setMessage("Instala MandoTouchZoom una vez en Windows. Comprueba Ctrl+Alt+F12 para ampliar y Ctrl+Alt+F11 para reducir con Firefox activo y el cursor sobre la página. Después confirma aquí. El pellizco enviará esos gestos táctiles alrededor del cursor.")
@@ -214,14 +394,23 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void request(final String id, final String raw) {
             if (id == null || !id.matches("[0-9]{1,9}") || raw == null || raw.length() > 8192 || destroyed) return;
             final long requestedAt = android.os.SystemClock.elapsedRealtime();
+            final JSONObject request;
+            final String requestPath;
+            try {request=new JSONObject(raw);requestPath=request.getString("path");}
+            catch(Exception invalid){try{reply(id,new JSONObject().put("error","Petición inválida"));}catch(Exception ignored){}return;}
+            if("/api/logout".equals(requestPath)||"/api/pair".equals(requestPath)||
+                    ("/api/own-forget".equals(requestPath)&&(client==ownClient||resume.owns("own"))))cancelResume();
+            final long stamp=resume.generation();
+            final boolean duringRecovery=resuming;
             try {
                 worker.execute(() -> {
                     JSONObject result = new JSONObject();
                     try {
-                        JSONObject request = new JSONObject(raw);
-                        String path = request.getString("path");
+                        String path = requestPath;
                         JSONObject data = request.optJSONObject("data");
-                        if ("/api/ir/status".equals(path)) {
+                        boolean input="/api/action".equals(path)||"/api/lock".equals(path)||"/api/keyboard".equals(path)||"/api/ir/send".equals(path);
+                        if(input && (!foreground||!resume.current(stamp)||(duringRecovery&&!"/api/ir/send".equals(path))))result.put("expired",true);
+                        else if ("/api/ir/status".equals(path)) {
                             result.put("available", infrared.isAvailable());
                             result.put("profile", "LGTV1");
                         } else if ("/api/ir/send".equals(path)) {
@@ -231,15 +420,32 @@ public final class MainActivity extends Activity {
                             infrared.send(data.getString("command"));
                             result.put("ok", true);
                         } else if ("/api/status".equals(path)) {
+                            if(client==ownClient && ownClient.isConnected()) {
+                                try {ownClient.refreshStatus();}catch(Exception ignored){ }
+                            }
+                            result=sessionState();
                             result.put("paired", client.isConnected());
-                            result.put("dryRun", false);
+                            result.put("dryRun", client==ownClient && ownClient.isDryRun());
                             result.put("imeVisible",imeVisible);
+                        } else if ("/api/own-forget".equals(path)) {
+                            ownClient.close();deviceStore.forget();result.put("ok",true);
+                        } else if ("/api/qr-scan".equals(path)) {
+                            if(foreground&&!resuming&&resume.current(stamp))runOnUiThread(() -> {
+                                if(foreground&&!resuming&&resume.current(stamp))startActivityForResult(new Intent(MainActivity.this,QrScanner.class),4107);
+                            });
+                            result.put("ok",true);
+                        } else if ("/api/clipboard".equals(path)) {
+                            if(foreground&&!resuming&&resume.current(stamp))runOnUiThread(() -> showClipboard());
+                            result.put("ok",true);
                         } else if ("/api/zoom-setup".equals(path)) {
                             runOnUiThread(() -> showZoomSetup());result.put("ok",true);
                         } else if ("/api/lock-setup".equals(path)) {
-                            runOnUiThread(() -> showLockSetup());result.put("ok",true);
+                            if(client==ownClient)runOnUiThread(() -> Toast.makeText(MainActivity.this,"El servidor propio incluye el bloqueo directo.",Toast.LENGTH_LONG).show());
+                            else runOnUiThread(() -> showLockSetup());result.put("ok",true);
                         } else if ("/api/lock".equals(path)) {
-                            if(!getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false)) {
+                            if(client==ownClient) {
+                                client.action(new JSONObject().put("type","lock"));result.put("ok",true);
+                            } else if(!getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false)) {
                                 runOnUiThread(() -> showLockSetup());result.put("needsSetup",true);
                             } else {
                                 client.action(new JSONObject().put("type","key").put("key","L")
@@ -259,29 +465,58 @@ public final class MainActivity extends Activity {
                                 if(!(value instanceof Boolean))throw new IOException("Preferencia IR inválida");
                                 getPreferences(MODE_PRIVATE).edit().putBoolean("irTabVisible",(Boolean)value).apply();
                             }
+                            result.put("ownDeviceSaved",deviceStore.hasSaved());
                             result.put("irTabVisible",getPreferences(MODE_PRIVATE).getBoolean("irTabVisible",infrared.isAvailable()));
                             result.put("sensitivity",getPreferences(MODE_PRIVATE).getFloat("sensitivity",0.65f));
-                            result.put("lockHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false));
-                            result.put("zoomHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
+                            result.put("lockHelperInstalled",getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false) || client==ownClient);
+                            result.put("zoomHelperInstalled",client==ownClient ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
                         } else if ("/api/keyboard".equals(path)) {
                             final boolean visible=data!=null && data.optBoolean("visible",false);
                             if(visible && !client.isConnected())throw new IOException("Conecta primero con el PC");
                             runOnUiThread(() -> showKeyboard(visible));result.put("ok",true);
                         } else if ("/api/pair".equals(path)) {
                             if (data == null) throw new IOException("Falta la dirección del PC");
-                            client.connect(wifi(), data.getString("host"));
-                            result.put("ok", true);
-                            result.put("version", client.serverVersion());
+                            if(!foreground||!resume.current(stamp))throw new IOException("Abre Mando para conectar");
+                            ownClient.close();
+                            String mode="own";
+                            if(!"own".equals(data.optString("mode","own")))throw new IOException("Esta versión utiliza Mando Server");
+                            Network network=wifi();
+                            {
+                                try {
+                                    String code=data.optString("code","");
+                                    JSONObject saved=null;
+                                    try{saved=deviceStore.load();}catch(Exception unavailable){if(code.isEmpty())throw unavailable;}
+                                    String discovered=data.optString("ownHost","");
+                                    if(code.isEmpty()&&saved!=null&&!discovered.isEmpty()) {
+                                        RemoteClient.privateAddress(discovered);
+                                        saved=new JSONObject(saved.toString()).put("host",discovered).put("port",data.getInt("ownPort"));
+                                    }
+                                    JSONObject profile=ownClient.connect(network,code,saved);
+                                    deviceStore.save(profile);
+                                }catch(Exception error){ownClient.close();throw error;}
+                            }
+                            if(!resume.connected(stamp,new ResumeWindow.Target("own",""))) {
+                                ownClient.close();throw new IOException("Conexión cancelada");
+                            }
+                            getPreferences(MODE_PRIVATE).edit().putString("lastServerMode",mode).apply();
+                            result.put("ok", true).put("mode","own");
+                            result.put("version", "Mando v1 TLS");
+                            result.put("directLock",true).put("dryRun",ownClient.isDryRun());
+                            result.put("secureDesktop",ownClient.supportsSecureDesktop());
+                            result.put("lockHelperInstalled",true);
+                            result.put("zoomHelperInstalled",ownClient.supportsZoom());
                         } else if ("/api/scan".equals(path)) {
                             ConnectivityManager manager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
                             Network network=wifi();
-                            result.put("servers",client.scan(network,manager.getLinkProperties(network)));
+                            result.put("servers",discoveryClient.scan(network,manager.getLinkProperties(network)));
                         } else if ("/api/logout".equals(path)) {
                             client.close(); result.put("ok", true);
                         } else if ("/api/action".equals(path)) {
                             if (data == null) throw new IOException("Falta la acción");
-                            if ("zoom".equals(data.optString("type")) &&
-                                    !getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false)) {
+                            if("scroll_horizontal".equals(data.optString("type"))&&client==ownClient&&!ownClient.supportsHorizontalScroll()) {
+                                result.put("unsupported","Actualiza el servidor propio para el desplazamiento horizontal.");
+                            } else if ("zoom".equals(data.optString("type")) &&
+                                    !(client==ownClient ? ownClient.supportsZoom() : getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false))) {
                                 runOnUiThread(() -> showZoomSetup());result.put("needsSetup",true);
                             } else {
                                 if (("zoom".equals(data.optString("type")) || "task_view".equals(data.optString("type"))) &&
@@ -291,13 +526,75 @@ public final class MainActivity extends Activity {
                             }
                         } else throw new IOException("Acción no permitida");
                     } catch (Exception e) {
-                        try { result.put("error", safeMessage(e)); } catch (Exception ignored) { }
+                        try {
+                            if(!resume.current(stamp) && ("/api/action".equals(requestPath)||"/api/lock".equals(requestPath)||"/api/keyboard".equals(requestPath)||"/api/ir/send".equals(requestPath)))result.put("expired",true);
+                            else result.put("error",safeMessage(e));
+                        } catch(Exception ignored){ }
                     }
                     reply(id, result);
                 });
             } catch (java.util.concurrent.RejectedExecutionException busy) {
                 try { reply(id, new JSONObject().put("error", "Demasiadas acciones pendientes. Espera un momento.")); }
                 catch (Exception ignored) { }
+            }
+        }
+    }
+
+    private int bootCount() {
+        try{return android.provider.Settings.Global.getInt(getContentResolver(),android.provider.Settings.Global.BOOT_COUNT,-1);}
+        catch(Exception ignored){return -1;}
+    }
+    private void restoreResumeCheckpoint() {
+        android.content.SharedPreferences prefs=getPreferences(MODE_PRIVATE);
+        int boot=bootCount();
+        if(boot<0 || prefs.getInt("resumeBoot",-2)!=boot)return;
+        String mode=prefs.getString("resumeMode","");
+        long paused=prefs.getLong("resumePaused",-1),now=android.os.SystemClock.elapsedRealtime();
+        if(paused<0 || now<paused || now-paused>=ResumeWindow.TTL_MS)return;
+        if(!"own".equals(mode))return;
+        resume.restore(new ResumeWindow.Target(mode,prefs.getString("resumeHost","")),paused);
+    }
+    private void saveResumeCheckpoint(){saveResumeCheckpoint(false);}
+    private void saveResumeCheckpoint(boolean immediate) {
+        ResumeWindow.Snapshot checkpoint=resume.checkpoint();
+        android.content.SharedPreferences.Editor prefs=getPreferences(MODE_PRIVATE).edit();
+        if(checkpoint==null)prefs.remove("resumePaused").remove("resumeMode").remove("resumeHost").remove("resumeBoot");
+        else prefs.putLong("resumePaused",checkpoint.pausedAt).putString("resumeMode",checkpoint.target.mode)
+            .putString("resumeHost",checkpoint.target.host).putInt("resumeBoot",bootCount());
+        if(immediate)prefs.commit();else prefs.apply();
+    }
+    private void cancelResume() {
+        synchronized(resumeStoreLock){resume.clear();resuming=false;saveResumeCheckpoint(true);}
+        ownClient.close();
+    }
+    private JSONObject sessionState()throws Exception {
+        return new JSONObject().put("paired",client.isConnected()).put("resuming",resuming)
+            .put("mode","own").put("dryRun",client==ownClient&&ownClient.isDryRun())
+            .put("lockHelperInstalled",client==ownClient||getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false))
+            .put("zoomHelperInstalled",client==ownClient?ownClient.supportsZoom():getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
+    }
+    private void publishSession(JSONObject result){publishSession(result,resume.generation());}
+    private void publishSession(JSONObject result,long stamp) {
+        runOnUiThread(() -> {if(!destroyed&&foreground&&resume.current(stamp))web.evaluateJavascript("window.mandoSessionResult && window.mandoSessionResult("+result.toString()+")",null);});
+    }
+    private void recoverSession(ResumeWindow.Ticket ticket) {
+        try {
+            if(!resume.current(ticket.generation))return;
+            Network network=wifi();
+            if(!"own".equals(ticket.target.mode))throw new IOException("Vuelve a conectar con Mando Server");
+            {
+                JSONObject saved=deviceStore.load();
+                if(saved==null)throw new IOException("Vuelve a emparejar el servidor propio");
+                ownClient.connect(network,"",saved);
+            }
+            if(!resume.connected(ticket.generation,ticket.target)){ownClient.close();return;}
+            resuming=false;
+            publishSession(sessionState().put("recovered",true),ticket.generation);
+        } catch(Exception error) {
+            ownClient.close();
+            if(resume.current(ticket.generation)) {
+                resuming=false;
+                try {publishSession(sessionState().put("failed",true).put("error",safeMessage(error)),ticket.generation);}catch(Exception ignored){ }
             }
         }
     }
@@ -311,22 +608,31 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onStart() {
-        super.onStart();
-        foreground = true;
+        super.onStart();foreground=true;
+        ResumeWindow.Ticket ticket=resume.start(android.os.SystemClock.elapsedRealtime());
+        resuming=ticket!=null;
+        if(ticket!=null) {
+            web.evaluateJavascript("window.mandoResuming && window.mandoResuming()",null);
+            try {worker.execute(() -> recoverSession(ticket));}
+            catch(java.util.concurrent.RejectedExecutionException busy) {
+                resuming=false;
+                try{publishSession(sessionState().put("failed",true).put("error","Espera un momento y vuelve a conectar."));}catch(Exception ignored){ }
+            }
+        } else try{publishSession(sessionState());}catch(Exception ignored){ }
     }
 
     @Override protected void onStop() {
-        foreground = false;
-        super.onStop();
-        editor.discard();
-        showKeyboard(false);
-        client.close(); // No commands remain active when leaving the controller.
-        if (web != null) web.evaluateJavascript("window.mandoDisconnected && window.mandoDisconnected()", null);
+        foreground=false;
+        synchronized(resumeStoreLock){resume.pause(android.os.SystemClock.elapsedRealtime(),client.isConnected());saveResumeCheckpoint();}
+        resuming=false;
+        super.onStop();editor.discard();resetImeModifiers();showKeyboard(false);
+        ownClient.close();
+        if(web!=null)web.evaluateJavascript("window.mandoSuspended && window.mandoSuspended()",null);
     }
 
     @Override protected void onDestroy() {
-        destroyed = true;
-        client.close(); worker.shutdownNow();
+        destroyed = true;resume.clear();
+        ownClient.close(); worker.shutdownNow();
         if (web != null) { web.removeJavascriptInterface("MandoNative"); web.destroy(); }
         super.onDestroy();
     }
