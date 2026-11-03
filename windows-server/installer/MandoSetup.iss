@@ -68,5 +68,5 @@ begin
 end;
 procedure InitializeWizard();
 begin
-  WizardForm.FinishedLabel.Caption := 'Mando esta instalado. Abre Mando Server desde Inicio. Detecta la IP automaticamente, permanece en la bandeja y arrancara al iniciar tu sesion de Windows. Cierra Remote Mouse antes de conectar. En Android busca Mando propio y pega el codigo que muestra el PC.';
+  WizardForm.FinishedLabel.Caption := 'Mando esta instalado. Abre Mando Server desde Inicio. Detecta la IP automaticamente, permanece en la bandeja y arrancara al iniciar tu sesion de Windows. Cierra Remote Mouse antes de conectar. En Android pulsa Escanear QR del PC y luego Conectar. El PC quedara recordado.';
 end;

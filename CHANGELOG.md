@@ -1,5 +1,14 @@
 # Historial
 
+## 0.5.0-alpha.12 — QR y cambios de IP
+
+- QR local en Windows con IP, puerto, huella del servidor y PIN temporal. Lector QR integrado en Android sin guardar ni enviar imágenes.
+- El vínculo se recuerda con Android Keystore. Volver a escanear el mismo PC reutiliza su autorización y evita registros duplicados.
+- Buscar un PC conocido con otra IP actualiza el destino, conserva la huella TLS y no envía el token hasta comprobar esa identidad. No necesita QR nuevo por DHCP.
+- El servidor detecta cambios de dirección de su red y vuelve a escuchar con un QR actualizado.
+- Validación QR Python → ZXing en cuatro orientaciones y regresión UI con IP distinta correctas. Prueba física del escáner pendiente.
+
+
 ## 0.5.0-alpha.11 — inicio automático y servicio opcional para escritorio normal
 
 - Inicio automático por cuenta de Windows, directamente en la bandeja; espera y reintenta si la red aún no está conectada.

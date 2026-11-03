@@ -1,4 +1,4 @@
-# Servidor propio completo — experimental 0.5.0-alpha.11
+# Servidor propio completo — experimental 0.5.0-alpha.12
 
 Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
 
@@ -6,9 +6,9 @@ Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de re
 
 ## Instalador EXE (recomendado)
 
-Descarga `MandoSetup-0.5.0-alpha.11.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
+Descarga `MandoSetup-0.5.0-alpha.12.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
 
-Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, la IP se detecta automáticamente. Si hay varias redes, selecciona la de casa en la ventana. En Android pulsa Buscar en Wi-Fi, selecciona Mando propio y pega el código mostrado. El servidor queda en la bandeja al cerrar la ventana. Doble clic abre el código; Salir detiene el servidor. Arranca automáticamente, oculto en la bandeja, al iniciar la sesión de la cuenta autorizada.
+Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, la IP se detecta automáticamente. Si hay varias redes, selecciona la de casa en la ventana. En Android pulsa Escanear QR del PC, apunta al QR de la ventana Windows y pulsa Conectar. El servidor queda en la bandeja al cerrar la ventana. Doble clic abre el código; Salir detiene el servidor. Arranca automáticamente, oculto en la bandeja, al iniciar la sesión de la cuenta autorizada.
 
 Para actualizar basta con ejecutar el nuevo instalador: reemplaza el componente de escritorio reconocido y conserva la identidad TLS y autorizaciones en LocalAppData. Para desinstalar usa Configuración → Aplicaciones → Mando Server. Windows CI [41730608599](https://github.com/epava1516/mando_multimedia_windows/actions/runs/41730608599) verificó el arranque/parada del backend y cierre a bandeja, además de inicio automático por usuario, modo oculto, servidor sin broker, instalación, actualización, reglas privadas y desinstalación del EXE. El instalador todavía no tiene firma digital.
 
@@ -117,3 +117,11 @@ Abrir MandoServer.exe directamente también redirige a MandoTray.exe. Se reinici
 La comprobación del broker es una capacidad, no un requisito para escuchar y emparejar en el escritorio normal. Sin broker disponible, no funciona la entrada en la pantalla bloqueada; sus controles de SID, sesión y PID permanecen activos. La ventana muestra Bloqueo pendiente y Diagnóstico indica estado del servicio, coincidencia de la cuenta y código de fallo IPC sin texto del usuario, claves ni tokens. Esto permite diagnosticar el caso físico sin exigir reinstalaciones repetidas.
 
 La separación entre red normal y Winlogon está contrastada con evidencia REA del original: [comparación de arranque](../evidence/ORIGINAL_STARTUP.md). La comparación no demuestra la causa del fallo físico del servicio en el PC del usuario.
+
+## QR y dirección del PC (alpha.12)
+
+El QR contiene el código completo: IPv4 privada, puerto, huella SHA256 del certificado y PIN de diez minutos. Se genera sin servicios externos y se presenta como matriz en memoria, sin archivos ni imágenes temporales. Al caducar se retira; abrir la ventana permite renovarlo.
+
+La app conserva la autorización cifrada con Keystore. Otro QR del mismo certificado actualiza el destino y reutiliza el dispositivo existente. Si el router cambia la IP, Buscar en Wi-Fi → PC encontrado → Conectar usa la nueva dirección pero mantiene el pin TLS: no envía tokens a otro certificado. Un PC nuevo o una identidad/autoridad revocada requiere otro QR. El servidor observa la pérdida de su dirección y reinicia en una dirección privada disponible.
+
+Solo se conserva un PC autorizado en esta versión. Reinstalar Windows, borrar los datos de la app o revocar dispositivos puede requerir repetir el emparejamiento. La búsqueda por sí sola no autoriza otro PC.

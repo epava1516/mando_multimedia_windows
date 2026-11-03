@@ -1,11 +1,11 @@
-MANDO SERVER — 0.5.0-alpha.11 (experimental)
+MANDO SERVER — 0.5.0-alpha.12 (experimental)
 
 El instalador incluye el servidor y configura bloqueo y gestos. No necesitas Python ni ejecutar comandos de PowerShell.
 
 1. Cierra Remote Mouse en Windows (comparte el puerto TCP1979).
 2. Abre Mando Server desde Inicio con tu cuenta normal, sin ejecutar como administrador.
 3. La IP se detecta automaticamente. Si tienes varias redes, selecciona la Wi-Fi o Ethernet de casa en la ventana.
-4. En Android: Buscar en Wi-Fi → elige Mando propio → pega el codigo mando1 del PC → Conectar.
+4. En Android: Escanear QR del PC → apunta al QR de esta ventana → Conectar. No necesitas buscar antes en Wi-Fi.
 
 Cerrar la ventana deja Mando funcionando en la bandeja del sistema. Doble clic en su icono abre el codigo; Salir detiene el servidor. Mando arranca automaticamente en la bandeja al iniciar tu sesion de Windows. Si la Wi-Fi tarda en conectarse, espera y reintenta automaticamente. El servicio local de bloqueo si arranca automaticamente.
 
@@ -16,3 +16,5 @@ Portapapeles: copia texto o una URL en el PC; Android → Teclado → Portapapel
 Actualizaciones: el instalador reemplaza solo el componente de escritorio reconocido. Conserva certificados y autorizaciones en LocalAppData. Para desinstalar usa Configuracion → Aplicaciones → Mando Server.
 
 El portapapeles pasa pruebas reales de Windows con URLs y formatos adicionales. El servidor propio sigue siendo experimental; falta verificar gestos y pantalla bloqueada en tu PC. No cubre primer inicio de sesion, UAC ni RDP.
+
+El PC queda recordado. Si cambia su IP: Android → Buscar en Wi-Fi → elige el PC → Conectar. Solo usara la autorizacion guardada si el certificado coincide; no requiere otro QR por un cambio de IP. Otro QR del mismo PC tambien reutiliza el vinculo.
