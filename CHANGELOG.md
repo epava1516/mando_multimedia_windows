@@ -1,5 +1,10 @@
 # Historial
 
+## 0.5.0-alpha.14 — textos del servidor único
+
+- Actualiza la ayuda cuando no se encuentra el PC y el estado de conexión para referirse siempre a Mando Server.
+
+
 ## 0.5.0-alpha.13 — Mando Server fijo
 
 - Retira el selector de servidor y la entrada de IP del servidor oficial. La app solo conecta y recupera sesiones con Mando Server.

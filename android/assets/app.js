@@ -200,7 +200,7 @@ $('scan').addEventListener('click', async () => {
   try {
     const result = await api('/api/scan', {});
     discoveredServers = result.servers.filter(server=>server.mode==='own'); serverPage = 0; renderServers();
-    status(result.servers.length ? 'Selecciona tu PC y pulsa Conectar.' : 'No se han encontrado servidores en este segmento. Comprueba que Remote Mouse está abierto o introduce la IP.');
+    status(result.servers.length ? 'Selecciona tu PC y pulsa Conectar.' : 'No se ha encontrado tu PC. Comprueba que Mando Server esté abierto y la red de Windows sea privada, o escanea su QR.');
   } catch (error) {status(error.message, true);}
   finally {$('scan').disabled = false; $('pair-button').disabled = false;}
 });
