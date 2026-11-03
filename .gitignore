@@ -55,3 +55,4 @@ windows-server/dist/
 web-downloads/.env
 web-downloads/public/*.apk
 web-downloads/public/*.zip
+web-downloads/public/*.exe

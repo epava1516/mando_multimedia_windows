@@ -1,20 +1,20 @@
-MANDO — INSTALACIÓN DEL SERVIDOR WINDOWS
+MANDO — INSTALADOR WINDOWS
 
-1. Extrae TODO el ZIP en una carpeta de tu cuenta de Windows.
-2. Abre Windows PowerShell 5.1 como administrador en esa carpeta:
+1. Descarga MandoSetup-0.5.0-alpha.9.exe y abrelo con doble clic.
+2. Acepta el permiso de administrador para instalar el servicio local de bloqueo.
+3. Al terminar, cierra Remote Mouse y abre Mando Server desde Inicio con tu cuenta normal.
+4. Introduce la IP Wi-Fi del PC y permite la red privada si Windows lo solicita.
+5. En la app: Desconectar → Mando propio (experimental) → pega el codigo mando1 que muestra el PC → Conectar.
 
-Get-ChildItem -Recurse -File | Unblock-File
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\Instalar-MandoCompleto.ps1
+No necesitas instalar Python, extraer el ZIP ni ejecutar comandos de PowerShell.
 
-Si elevas con una cuenta administrativa diferente de tu cuenta normal, consulta README.md dentro del ZIP: debes indicar el SID de la cuenta normal con -UserSid.
-
-3. Cierra la consola elevada y Remote Mouse (comparte el puerto TCP1979).
-4. Abre MandoServer.exe desde tu cuenta normal. Introduce la IP Wi-Fi del PC.
-5. Si Windows solicita permiso de red, permite únicamente la red privada que uses.
-6. En la app: Desconectar → Mando propio (experimental) → pega el código mando1 que muestra el PC → Conectar.
+El servidor de red debe permanecer abierto para usar el PC, tambien bloqueado. No arranca automaticamente con Windows. El servicio local de bloqueo si arranca automaticamente.
 
 PORTAPAPELES
-Copia la URL directamente del navegador. En la app: Teclado → Portapapeles → PC → móvil. Después pega en el móvil. Solo texto, máximo 1000 unidades UTF-16; Windows debe estar desbloqueado. No hay sincronización ni pegado automático.
+Copia directamente texto o una URL del navegador. Android → Teclado → Portapapeles → PC → movil. Luego pega en el movil. Solo texto, maximo 1000 unidades UTF-16, con Windows desbloqueado.
+
+DESINSTALAR
+Configuracion de Windows → Aplicaciones → Mando Server. Conserva la identidad y autorizaciones en LocalAppData; no se borran tus datos de emparejamiento.
 
 ESTADO
-Servidor experimental. Las pruebas reales de portapapeles en un runner Windows pasan; falta verificar tu navegador, bloqueo y gestos en tu PC. El servidor de red debe permanecer abierto. README.md dentro del ZIP contiene instrucciones completas y desinstalación.
+Version experimental. Hay pruebas automatizadas de instalacion, actualizacion y desinstalacion. Los gestos y la pantalla bloqueada requieren validacion en tu PC.

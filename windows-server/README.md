@@ -1,8 +1,18 @@
-# Servidor propio completo — experimental 0.5.0-alpha.7
+# Servidor propio completo — experimental 0.5.0-alpha.9
 
 Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
 
 **Estado:** compilación e instalación/desinstalación del servicio, identidad del pipe y pruebas del protocolo pasan en un runner Windows. La entrada real con la pantalla bloqueada y el zoom visual necesitan confirmación en el PC. No es todavía una versión estable.
+
+## Instalador EXE (recomendado)
+
+Descarga `MandoSetup-0.5.0-alpha.9.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
+
+Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, introduce la IP Wi-Fi del PC y empareja Android en modo **Mando propio** con el código mostrado. El servidor de red no arranca automáticamente con Windows: su consola debe permanecer abierta.
+
+Para actualizar basta con ejecutar el nuevo instalador: reemplaza el componente de escritorio reconocido y conserva la identidad TLS y autorizaciones en LocalAppData. Para desinstalar usa Configuración → Aplicaciones → Mando Server. Windows CI [41724946650](https://github.com/epava1516/mando_multimedia_windows/actions/runs/41724946650) verificó instalación, actualización y desinstalación del EXE. El instalador todavía no tiene firma digital.
+
+El ZIP y los siguientes comandos se conservan como alternativa manual.
 
 ## Instalar el paquete completo
 

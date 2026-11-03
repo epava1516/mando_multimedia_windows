@@ -1,5 +1,13 @@
 # Historial
 
+## 0.5.0-alpha.9 — instalador Windows
+
+- Instalador EXE con asistente, acceso en Inicio y desinstalador. Incluye servidor y configura servicio de bloqueo/gestos sin Python externo ni comandos manuales.
+- Autoriza la cuenta de consola activa si UAC usa otra cuenta administrativa. El servidor de red se abre desde Inicio como usuario normal.
+- Actualiza solo componentes reconocidos y conserva identidad/autorizaciones. Instalación, actualización y desinstalación verificadas en Windows CI41724946650.
+- Publicado en /apps/mando/; la APK sigue en alpha.8 y el servidor propio continúa experimental.
+
+
 ## 0.5.0-alpha.8 — diagnóstico de recepción del portapapeles
 
 - El usuario confirma Móvil → PC y PC → móvil con texto corto de Bloc de notas. Una URL del navegador devuelve `CLIP-NO-TEXT` (`nop` del oficial); queda pendiente probar esa URL con el servidor propio.
