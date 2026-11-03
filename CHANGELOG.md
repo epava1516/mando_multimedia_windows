@@ -1,5 +1,12 @@
 # Historial
 
+## 0.5.0-alpha.5 — rueda fina
+
+- Sustituye las ráfagas de quince muestras por muestras individuales en el servidor oficial.
+- Bordes y scroll con dos dedos envían incrementos cada 4px en ese modo, reduciendo el desplazamiento por recorrido a un tercio del anterior y evitando el umbral de 20px.
+- El usuario confirmó ambos ejes en alpha.4, pero reportó saltos grandes. La fluidez de alpha.5 queda pendiente de prueba física.
+
+
 ## 0.5.0-alpha.4 — bordes de rueda
 
 - Borde derecho para rueda vertical y borde inferior para horizontal, con un dedo y sin clics ni movimiento del cursor.

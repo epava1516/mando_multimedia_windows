@@ -75,6 +75,16 @@ const server = http.createServer((request, response) => {
     // Dedicated edge starts choose the wheel axis for the entire drag.
     await reset();
     const edgeX=bounds.x+bounds.width-22, edgeY=bounds.y+bounds.height-22;
+    for (const horizontal of [false,true]) {
+      await reset();
+      const x=horizontal?cx:edgeX, y=horizontal?edgeY:cy;
+      await send('touchStart',[point(1,x,y)]);
+      await send('touchMove',[point(1,x+(horizontal?4:0),y+(horizontal?0:4))]);
+      await finish();
+      const fine=await actions();
+      assert.deepEqual(fine,[{type:horizontal?'scroll_horizontal':'scroll',steps:1}], '4px edge motion must send one fine sample');
+    }
+    await reset();
     await send('touchStart',[point(1,edgeX,cy)]);
     await send('touchMove',[point(1,edgeX,cy+60)]);
     await finish();

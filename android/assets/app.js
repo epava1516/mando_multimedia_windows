@@ -456,17 +456,19 @@ pad.addEventListener('pointermove', event => {
         }
       }
     } else {
-      const steps = Math.max(-10, Math.min(10, Math.trunc((scrollAnchor - geometry.y) / 20)));
+      const wheelDistance = connectionMode === 'official' ? 4 : 20;
+      const steps = Math.max(-10, Math.min(10, Math.trunc((scrollAnchor - geometry.y) / wheelDistance)));
       if (steps) {
-        scrollAnchor -= steps * 20;
+        scrollAnchor -= steps * wheelDistance;
         action({type: 'scroll', steps}).catch(() => {});
       }
     }
   } else if(!multi && edgeAxis) {
     const position=edgeAxis==='horizontal'?event.clientX:event.clientY;
-    const steps=Math.max(-10,Math.min(10,Math.trunc((position-edgeAnchor)/20)));
+    const wheelDistance=connectionMode==='official'?4:20;
+    const steps=Math.max(-10,Math.min(10,Math.trunc((position-edgeAnchor)/wheelDistance)));
     if(steps){
-      edgeAnchor+=steps*20;
+      edgeAnchor+=steps*wheelDistance;
       action({type:edgeAxis==='horizontal'?'scroll_horizontal':'scroll',steps}).catch(()=>{});
     }
   } else if (!multi) {dx += x * sensitivity; dy += y * sensitivity;}

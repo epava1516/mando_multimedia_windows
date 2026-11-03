@@ -158,8 +158,8 @@ final class RemoteClient implements InputClient {
             if(steps!=0) {
                 long now=android.os.SystemClock.elapsedRealtime();
                 // Server 531 uses magnitude 0 after >=80ms idle, then 8 units by default.
-                // Prime that idle state once; fifteen live samples form one 120-unit wheel step.
-                int samples=Math.abs(steps)*15+(now-lastWheelAt>=70?1:0);
+                // Prime idle once, then send a single high-resolution sample per UI increment.
+                int samples=Math.abs(steps)+(now-lastWheelAt>=70?1:0);
                 for(int i=0;i<samples;i++)sendCommand(frame);
                 lastWheelAt=android.os.SystemClock.elapsedRealtime();
             }
