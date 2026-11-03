@@ -1,4 +1,4 @@
-# Servidor propio completo — experimental 0.5.0-alpha.10
+# Servidor propio completo — experimental 0.5.0-alpha.11
 
 Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
 
@@ -6,11 +6,11 @@ Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de re
 
 ## Instalador EXE (recomendado)
 
-Descarga `MandoSetup-0.5.0-alpha.10.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
+Descarga `MandoSetup-0.5.0-alpha.11.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
 
-Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, la IP se detecta automáticamente. Si hay varias redes, selecciona la de casa en la ventana. En Android pulsa Buscar en Wi-Fi, selecciona Mando propio y pega el código mostrado. El servidor queda en la bandeja al cerrar la ventana. Doble clic abre el código; Salir detiene el servidor. No arranca automáticamente al entrar en Windows.
+Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, la IP se detecta automáticamente. Si hay varias redes, selecciona la de casa en la ventana. En Android pulsa Buscar en Wi-Fi, selecciona Mando propio y pega el código mostrado. El servidor queda en la bandeja al cerrar la ventana. Doble clic abre el código; Salir detiene el servidor. Arranca automáticamente, oculto en la bandeja, al iniciar la sesión de la cuenta autorizada.
 
-Para actualizar basta con ejecutar el nuevo instalador: reemplaza el componente de escritorio reconocido y conserva la identidad TLS y autorizaciones en LocalAppData. Para desinstalar usa Configuración → Aplicaciones → Mando Server. Windows CI [41727905603](https://github.com/epava1516/mando_multimedia_windows/actions/runs/41727905603) verificó el arranque/parada del backend y cierre a bandeja, además de instalación, actualización, reglas privadas y desinstalación del EXE. El instalador todavía no tiene firma digital.
+Para actualizar basta con ejecutar el nuevo instalador: reemplaza el componente de escritorio reconocido y conserva la identidad TLS y autorizaciones en LocalAppData. Para desinstalar usa Configuración → Aplicaciones → Mando Server. Windows CI [41730608599](https://github.com/epava1516/mando_multimedia_windows/actions/runs/41730608599) verificó el arranque/parada del backend y cierre a bandeja, además de inicio automático por usuario, modo oculto, servidor sin broker, instalación, actualización, reglas privadas y desinstalación del EXE. El instalador todavía no tiene firma digital.
 
 El ZIP y los siguientes comandos se conservan como alternativa manual.
 
@@ -107,3 +107,13 @@ El acceso de Inicio abre MandoTray.exe como usuario normal; detecta IPv4 privada
 El instalador agrega reglas únicamente para MandoServer.exe, TCP1979 y UDP1980, redes privadas y origen LocalSubnet. El desinstalador retira únicamente esas reglas si su programa coincide. La red Wi-Fi de casa debe tener perfil privado en Windows.
 
 El anuncio UDP solo devuelve presencia, puerto y nonce de la petición; nunca PIN, certificado, tokens ni códigos. Android correlaciona el nonce, limita respuestas y conserva el emparejamiento por código completo con pinning TLS. Encontrar un servidor no lo autoriza automáticamente.
+
+## Inicio automático y diagnóstico (alpha.11)
+
+El instalador configura una entrada Run de Windows únicamente en la cuenta autorizada, apuntando al ejecutable protegido de bandeja con --background. El desinstalador elimina solo su propio valor si coincide exactamente. Se conserva la política de ejecutar el servidor como usuario normal. Si la red tarda en estar lista, reintenta automáticamente. Salir detiene la sesión actual; el siguiente inicio de Windows vuelve a abrir Mando.
+
+Abrir MandoServer.exe directamente también redirige a MandoTray.exe. Se reinicia el entorno de PyInstaller para que el backend no reutilice archivos temporales de un lanzador que ya terminó.
+
+La comprobación del broker es una capacidad, no un requisito para escuchar y emparejar en el escritorio normal. Sin broker disponible, no funciona la entrada en la pantalla bloqueada; sus controles de SID, sesión y PID permanecen activos. La ventana muestra Bloqueo pendiente y Diagnóstico indica estado del servicio, coincidencia de la cuenta y código de fallo IPC sin texto del usuario, claves ni tokens. Esto permite diagnosticar el caso físico sin exigir reinstalaciones repetidas.
+
+La separación entre red normal y Winlogon está contrastada con evidencia REA del original: [comparación de arranque](../evidence/ORIGINAL_STARTUP.md). La comparación no demuestra la causa del fallo físico del servicio en el PC del usuario.

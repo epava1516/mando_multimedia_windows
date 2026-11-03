@@ -1,6 +1,6 @@
 MANDO — INSTALADOR WINDOWS
 
-1. Descarga MandoSetup-0.5.0-alpha.10.exe y abrelo con doble clic.
+1. Descarga MandoSetup-0.5.0-alpha.11.exe y abrelo con doble clic.
 2. Acepta el permiso de administrador para instalar el servicio local de bloqueo.
 3. Al terminar, cierra Remote Mouse y abre Mando Server desde Inicio con tu cuenta normal.
 4. La IP se detecta automaticamente. Si hay varias redes, selecciona tu Wi-Fi o Ethernet de casa.
@@ -8,7 +8,7 @@ MANDO — INSTALADOR WINDOWS
 
 No necesitas instalar Python, extraer el ZIP ni ejecutar comandos de PowerShell.
 
-Cerrar la ventana deja Mando funcionando en la bandeja del sistema. Doble clic en el icono abre el codigo; Salir detiene el servidor. No arranca automaticamente al iniciar Windows. La red de casa debe estar configurada como privada.
+Cerrar la ventana deja Mando funcionando en la bandeja del sistema. Doble clic en el icono abre el codigo; Salir detiene el servidor. Arranca automaticamente en la bandeja al iniciar tu sesion de Windows. La red de casa debe estar configurada como privada.
 
 PORTAPAPELES
 Copia directamente texto o una URL del navegador. Android → Teclado → Portapapeles → PC → movil. Luego pega en el movil. Solo texto, maximo 1000 unidades UTF-16, con Windows desbloqueado.
@@ -18,3 +18,6 @@ Configuracion de Windows → Aplicaciones → Mando Server. Conserva la identida
 
 ESTADO
 Version experimental. Hay pruebas automatizadas de instalacion, actualizacion y desinstalacion. Los gestos y la pantalla bloqueada requieren validacion en tu PC.
+
+SERVICIO DE ESCRITORIO
+El fallo del componente de bloqueo ya no impide arrancar ni conectar al escritorio normal. Si ves Bloqueo pendiente, abre la ventana desde el icono de bandeja y pulsa Diagnostico. Muestra estado del servicio, coincidencia de cuenta y codigo DESKTOP_...; esos datos permiten diagnosticarlo sin compartir el codigo de emparejamiento. La entrada con Windows bloqueado no esta disponible si el broker falla.

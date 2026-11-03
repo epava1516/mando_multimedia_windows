@@ -1,5 +1,14 @@
 # Historial
 
+## 0.5.0-alpha.11 — inicio automático y servicio opcional para escritorio normal
+
+- Inicio automático por cuenta de Windows, directamente en la bandeja; espera y reintenta si la red aún no está conectada.
+- Abrir directamente el backend instalado redirige a la bandeja.
+- La falta del broker de bloqueo ya no impide iniciar y conectar al escritorio normal; no se relajan sus comprobaciones de identidad ni permisos.
+- Diagnóstico local del servicio, coincidencia de cuenta y código IPC. El fallo físico del componente de bloqueo sigue pendiente de diagnóstico en el PC.
+- Windows CI41730608599 correcto: arranque sin broker y emparejamiento TLS/estado sin entradas, modo oculto, inicio automático por usuario, instalación/actualización/desinstalación y reglas privadas.
+
+
 ## 0.5.0-alpha.10 — bandeja e IP automática
 
 - Inicio abre el servidor en la bandeja del sistema con IP de la red local detectada automáticamente. Cerrar oculta la ventana; Salir detiene el backend.
