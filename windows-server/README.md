@@ -79,3 +79,5 @@ En Linux la identidad de pruebas queda en `.state/`; en Windows usa LocalAppData
 El workflow Windows compila ambos componentes, prueba el instalador y la identidad IPC sin enviar input, construye MandoServer.exe y prueba su TLS en modo simulado. [Contrato](PROTOCOL.md). Antes de sustituir el oficial faltan las pruebas físicas de la [matriz](TEST-MATRIX.md), descubrimiento propio, renovación de certificado y experiencia de inicio automático del proceso de red.
 
 La APK alpha.4 y este paquete añaden los bordes de rueda. Para actualizar el componente de escritorio ya instalado, ejecuta su desinstalador y vuelve a ejecutar Instalar-MandoCompleto.ps1; la identidad TLS y las autorizaciones de LocalAppData se conservan.
+
+Alpha.7 añade portapapeles de texto bajo demanda por TLS. Requiere actualizar MandoServer.exe; no cambia el broker. Solo Windows desbloqueado y hasta 1000 unidades UTF-16, sin sincronización automática ni historial.

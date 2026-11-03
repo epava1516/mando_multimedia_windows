@@ -27,6 +27,14 @@ final class OwnClient implements InputClient {
         ready=false;Socket previous=socket;socket=null;
         if(previous!=null)try{previous.close();}catch(IOException ignored){ }
     }
+    boolean supportsClipboard(){return capabilities.optBoolean("clipboard_text",false);}
+    String clipboard(String text)throws Exception {
+        if(!supportsClipboard())throw new IOException("Actualiza el servidor propio para compartir el portapapeles");
+        JSONObject data=new JSONObject().put("direction",text==null?"read":"write");
+        if(text!=null)data.put("text",text);
+        JSONObject result=request("clipboard",data);
+        return text==null?result.getString("text"):null;
+    }
     boolean supportsHorizontalScroll(){return capabilities.optBoolean("horizontal_scroll",false);}
     boolean supportsSecureDesktop() {return capabilities.optBoolean("secure_desktop",false);}
     boolean isDryRun() {return capabilities.optBoolean("dry_run",false);}

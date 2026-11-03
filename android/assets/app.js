@@ -40,7 +40,7 @@ function setPaired(value) {
   $('connection').textContent = value ? 'PC vinculado' : 'Sin vincular';
   $('connection').classList.toggle('online', value);
   $('lock-pc').hidden = !value;
-  if (!value) {resetModifiers(); dx = dy = 0;}
+  if (!value) {stopVolumeHold();resetModifiers(); dx = dy = 0;}
 }
 const nativePending = new Map();
 let nativeSequence = 0;
@@ -60,6 +60,7 @@ async function api(path, data) {
   });
 }
 function suspendSession(label) {
+  stopVolumeHold();
   uiGeneration++;suspended=true;paired=false;
   $('own-code').value='';
   pointers.clear();pad.classList.remove('edge-active-y','edge-active-x');dx=dy=0;resetModifiers();
@@ -148,6 +149,7 @@ function toggleAndroidKeyboard() {
   if (document.body.classList.contains('ime-open')) api('/api/keyboard', {visible: false}).catch(error => status(error.message, true));
   else openAndroidKeyboard();
 }
+$('clipboard').addEventListener('click',()=>api('/api/clipboard',{}).catch(error=>status(error.message,true)));
 $('show-keyboard').addEventListener('click', toggleAndroidKeyboard);
 $('control-keyboard').addEventListener('click', toggleAndroidKeyboard);
 window.mandoLockChanged = ready => {
@@ -193,12 +195,12 @@ $('scan').addEventListener('click', async () => {
   } catch (error) {status(error.message, true);}
   finally {$('scan').disabled = false; $('pair-button').disabled = false;}
 });
-function action(data) {
+function action(data, stillValid = () => true) {
   if (!paired || queued >= 24) return Promise.reject(new Error('Espera a que termine el envío al PC'));
   queued++;
   const stamp=uiGeneration;
   const next = chain.then(() => {
-    if(stamp!==uiGeneration)return {expired:true};
+    if(stamp!==uiGeneration || !stillValid())return {expired:true};
     if (!paired) throw new Error('Vuelve a vincular el PC');
     return api('/api/action', data).then(result => {
       if (result.expired&&stamp===uiGeneration&&!suspended) status('El gesto ha caducado. Vuelve a intentarlo.', true);
@@ -264,6 +266,7 @@ $('pair-form').addEventListener('submit', async event => {
   finally {$('pair-button').disabled = false;}
 });
 function selectTab(tab) {
+  stopVolumeHold();
   activeTab = tab;
   $('notice').hidden = true;
   document.querySelectorAll('[data-tab]').forEach(button => {
@@ -306,7 +309,7 @@ api('/api/ir/status').then(result => {
 }).catch(error => setIrAvailable(false, error.message));
 let irSending = false;
 const irLabels = {POWER:'Encendido / apagado', VOLUME_UP:'Subir volumen', VOLUME_DOWN:'Bajar volumen', MUTE:'Silencio', EXIT:'Exit'};
-document.querySelectorAll('[data-ir]').forEach(button => button.addEventListener('click', async () => {
+document.querySelectorAll('[data-ir]:not([data-ir=VOLUME_UP]):not([data-ir=VOLUME_DOWN])').forEach(button => button.addEventListener('click', async () => {
   if (!irAvailable || irSending) return;
   irSending = true;
   try {
@@ -321,7 +324,55 @@ for (let i = 1; i <= 12; i++) {
   $('function-keys').appendChild(b);
 }
 document.querySelectorAll('[data-seek]').forEach(b => b.addEventListener('click', () => key(b.dataset.seek, []).catch(() => {})));
-document.querySelectorAll('[data-key]').forEach(b => b.addEventListener('click', () => key(b.dataset.key).catch(() => {})));
+document.querySelectorAll('[data-key]:not([data-key=VOLUME_UP]):not([data-key=VOLUME_DOWN])').forEach(b => b.addEventListener('click', () => key(b.dataset.key).catch(() => {})));
+// One in-flight repeat; release invalidates even a repeat waiting in the action queue.
+let volumeHold = null;
+function stopVolumeHold() {
+  if (!volumeHold) return;
+  clearTimeout(volumeHold.timer);volumeHold=null;
+}
+function bindVolumeHold(button, infrared) {
+  const name=infrared?button.dataset.ir:button.dataset.key;
+  async function emit(valid) {
+    if(infrared) {
+      if(!irAvailable || irSending || !valid())return;
+      irSending=true;
+      try {await api('/api/ir/send',{command:name});}
+      finally {irSending=false;}
+    } else await action({type:'key',key:name,modifiers:[]},valid);
+  }
+  button.style.touchAction='none';
+  button.style.userSelect='none';
+  button.addEventListener('contextmenu',event=>event.preventDefault());
+  button.addEventListener('pointerdown',event=>{
+    if(event.button!==0 || !event.isPrimary)return;
+    if(infrared?!irAvailable:!paired)return;
+    event.preventDefault();stopVolumeHold();
+    button.setPointerCapture(event.pointerId);
+    const hold={timer:null,pointer:event.pointerId};volumeHold=hold;
+    const valid=()=>volumeHold===hold&&!document.hidden&&(infrared?irAvailable:paired);
+    async function repeat(first) {
+      if(!valid())return;
+      try {await emit(valid);}
+      catch(error){if(valid())status(error.message,true);stopVolumeHold();return;}
+      if(valid())hold.timer=setTimeout(()=>repeat(false),first?350:120);
+    }
+    repeat(true);
+  });
+  for(const eventName of ['pointerup','pointercancel','lostpointercapture']) {
+    button.addEventListener(eventName,event=>{
+      if(volumeHold&&volumeHold.pointer===event.pointerId)stopVolumeHold();
+    });
+  }
+  // Keyboard/accessibility activation has no pointerdown.
+  button.addEventListener('click',event=>{
+    if(event.detail===0)emit(()=>!document.hidden&&(infrared?irAvailable:paired)).catch(error=>status(error.message,true));
+  });
+}
+document.querySelectorAll('[data-key=VOLUME_UP],[data-key=VOLUME_DOWN]').forEach(button=>bindVolumeHold(button,false));
+document.querySelectorAll('[data-ir=VOLUME_UP],[data-ir=VOLUME_DOWN]').forEach(button=>bindVolumeHold(button,true));
+window.addEventListener('blur',stopVolumeHold);
+document.addEventListener('visibilitychange',stopVolumeHold);
 document.querySelectorAll('[data-mod]').forEach(b => b.addEventListener('click', () => {
   const name = b.dataset.mod;
   if (mods.has(name)) mods.delete(name); else mods.add(name);

@@ -26,3 +26,7 @@ El registro está limitado a cuatro dispositivos. REVOKE borra el registro y rot
 El broker de escritorio usa otro canal: pipe local protegido, sin red, con límites idénticos de frame y validación propia. No acepta rutas, sesiones elegidas por el cliente ni comandos de shell. Solo el servicio decide si la consola está bloqueada y crea el trabajador Winlogon de esa sesión.
 
 La capacidad horizontal_scroll anuncia scroll_horizontal. No se trata como scroll vertical en versiones anteriores. La rueda horizontal usa MOUSEEVENTF_HWHEEL sin mantener Shift. El signo vertical coincide con el protocolo oficial; el gesto natural de dos dedos y los bordes eligen sus signos en el cliente.
+
+## Portapapeles explícito (alpha.7)
+
+Capacidad `clipboard_text`. Operación autenticada `clipboard` con el siguiente id secuencial y `action: {direction: "read"}` o `{direction: "write", text: "..."}`. Respuesta normal `{ok:true,id}` y campo `text` solo en lectura. Texto Unicode válido sin NUL, hasta 1000 unidades UTF-16. No se ofrece en dry-run; solo escritorio normal de la cuenta del servidor, sin broker Winlogon. Sin publicación/polling, historial, logs de contenido ni pegado automático. Comparte límites de frame8192 y revocación de dispositivo de la sesión TLS.

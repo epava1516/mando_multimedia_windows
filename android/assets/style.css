@@ -45,3 +45,5 @@
 .restoring{justify-content:center;align-items:center;color:var(--accent)}.session-paused #touch,.session-paused #keyboard,.session-paused #lock-pc{pointer-events:none;opacity:.65}
 
 .touchpad{position:relative;padding:10px 48px 48px 10px;isolation:isolate}.touchpad>span{text-align:center;max-width:100%}.scroll-edge{position:absolute;display:flex;align-items:center;justify-content:center;touch-action:none;background:var(--raised);color:var(--muted);z-index:1;opacity:.8}.scroll-edge-y{top:0;right:0;bottom:44px;width:44px;border-left:1px solid var(--line);border-radius:0 12px 0 0}.scroll-edge-x{left:0;right:0;bottom:0;height:44px;border-top:1px solid var(--line);border-radius:0 0 12px 12px}.scroll-edge svg{display:block!important;width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.touchpad.edge-active-y .scroll-edge-y,.touchpad.edge-active-x .scroll-edge-x{color:var(--accent);opacity:1;background:#2b4947}
+
+.keyboard-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0}.keyboard-tools button{font-size:13px}

@@ -21,10 +21,11 @@ const server = http.createServer((request, response) => {
     const page = await browser.newPage({viewport:{width:390,height:800},hasTouch:true});
     const errors=[]; page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
-      window.actions=[];window.pairRequests=[];
+      window.actions=[];window.pairRequests=[];window.irActions=[];
       window.MandoNative={request(id, raw) {
         const {path, data}=JSON.parse(raw);
         if (path==='/api/action') window.actions.push(data);
+        if (path==='/api/ir/send') window.irActions.push(data);
         if (path==='/api/pair') window.pairRequests.push(data);
         const result = path==='/api/pair' ? {mode:data.mode,version:'Mando v1 TLS',directLock:true,zoomHelperInstalled:true} : path==='/api/status' ? {paired:true} : path==='/api/settings' ?
           {sensitivity:.65,irTabVisible:true,zoomHelperInstalled:true} : path==='/api/ir/status' ? {available:true} : {ok:true};
@@ -45,6 +46,34 @@ const server = http.createServer((request, response) => {
     async function actions() {await page.waitForTimeout(80);return page.evaluate(()=>window.actions);}
     async function start(span=100) {await reset();await send('touchStart',[point(1,cx-span/2,cy),point(2,cx+span/2,cy)]);}
     const finish=()=>send('touchEnd',[]);
+    // Hold repeats without a queued tail after release; a tap still sends one step.
+    const volume=page.locator('[data-key=VOLUME_UP]');
+    const volumeBounds=await volume.boundingBox();
+    await page.mouse.move(volumeBounds.x+volumeBounds.width/2,volumeBounds.y+volumeBounds.height/2);
+    await reset();await page.mouse.down();await page.waitForTimeout(680);
+    await page.mouse.up();
+    let volumeActions=await actions();
+    assert(volumeActions.length>=3&&volumeActions.every(a=>a.key==='VOLUME_UP'),'held PC volume must repeat');
+    const releasedCount=volumeActions.length;
+    await page.waitForTimeout(400);
+    assert.equal((await actions()).length,releasedCount,'volume must stop on release');
+    await reset();await volume.click();
+    assert.equal((await actions()).length,1,'volume tap must send exactly one step');
+    await reset();await page.mouse.down();await page.waitForTimeout(400);
+    await page.evaluate(()=>window.mandoSuspended());
+    await page.mouse.up();
+    const pausedCount=(await actions()).length;await page.waitForTimeout(350);
+    assert.equal((await actions()).length,pausedCount,'pause must stop a held volume');
+    await page.evaluate(()=>window.mandoSessionResult({paired:true,mode:'official'}));
+    await page.locator('[data-tab=ir]').click();
+    const irVolume=page.locator('[data-ir=VOLUME_DOWN]');
+    const irBounds=await irVolume.boundingBox();
+    await page.mouse.move(irBounds.x+irBounds.width/2,irBounds.y+irBounds.height/2);
+    await page.mouse.down();await page.waitForTimeout(680);await page.mouse.up();
+    const irCount=await page.evaluate(()=>window.irActions.length);
+    assert(irCount>=3,'held IR volume must repeat');await page.waitForTimeout(350);
+    assert.equal(await page.evaluate(()=>window.irActions.length),irCount,'IR volume must stop on release');
+    await page.locator('[data-tab=touch]').click();
     await start();
     await send('touchMove',[point(1,cx-80,cy),point(2,cx+80,cy)]);
     await finish();

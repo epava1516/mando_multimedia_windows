@@ -3,6 +3,8 @@ package net.mando.personal;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -184,7 +186,7 @@ public final class MainActivity extends Activity {
         String[][] keys={{"LEFT","←"},{"DOWN","↓"},{"UP","↑"},{"RIGHT","→"},
             {"CTRL","Ctrl"},{"ALT","Alt"},{"SHIFT","Shift"},{"WIN","Win"},
             {"ESC","Esc"},{"TAB","Tab"},{"HOME","Inicio"},{"END","Fin"},
-            {"PAGEUP","Re Pág"},{"PAGEDOWN","Av Pág"},{"DELETE","Supr"}};
+            {"PAGEUP","Re Pág"},{"PAGEDOWN","Av Pág"},{"DELETE","Supr"},{"CLIPBOARD","Portapapeles"}};
         for(String[] item:keys) {
             final String name=item[0];
             Button button=new Button(this);button.setText(item[1]);
@@ -197,6 +199,7 @@ public final class MainActivity extends Activity {
             boolean modifier="CTRL".equals(name)||"ALT".equals(name)||"SHIFT".equals(name)||"WIN".equals(name);
             if(modifier)imeModifierButtons.put(name,button);
             button.setOnClickListener(view -> {
+                if("CLIPBOARD".equals(name)){showClipboard();return;}
                 editor.finishAndSend();
                 if(modifier) {
                     if(!imeModifiers.remove(name))imeModifiers.add(name);
@@ -210,6 +213,57 @@ public final class MainActivity extends Activity {
         }
         scroll.addView(strip);keyboardRow.addView(scroll,new LinearLayout.LayoutParams(-1,dp(52)));
         resetImeModifiers();
+    }
+
+    private void showClipboard() {
+        if(!foreground || resuming || !client.isConnected()) {
+            Toast.makeText(this,"Conecta primero con el PC",Toast.LENGTH_SHORT).show();return;
+        }
+        new AlertDialog.Builder(this).setTitle("Compartir portapapeles")
+            .setItems(new String[]{"Móvil → PC", "PC → móvil"},(dialog,which)->exchangeClipboard(which==0)).show();
+    }
+
+    private static String boundedClipboard(String value) throws IOException {
+        if(value==null || value.length()>1000 || value.indexOf(0)>=0)
+            throw new IOException("Solo texto, hasta 1000 caracteres");
+        for(int i=0;i<value.length();i++) {
+            char c=value.charAt(i);
+            if(Character.isHighSurrogate(c)) {
+                if(++i>=value.length() || !Character.isLowSurrogate(value.charAt(i)))throw new IOException("Texto inválido");
+            } else if(Character.isLowSurrogate(c))throw new IOException("Texto inválido");
+        }
+        return value;
+    }
+
+    private void exchangeClipboard(boolean toPc) {
+        final InputClient target=client;
+        final long stamp=resume.generation(),requested=android.os.SystemClock.elapsedRealtime();
+        final ClipboardManager clipboard=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+        final String text;
+        try {
+            if(toPc) {
+                ClipData clip=clipboard.getPrimaryClip();
+                if(clip==null || clip.getItemCount()==0 || clip.getItemAt(0).getText()==null)
+                    throw new IOException("Copia primero un texto en el móvil");
+                text=boundedClipboard(clip.getItemAt(0).getText().toString());
+            } else text=null;
+            worker.execute(()->{
+                try {
+                    if(!foreground||resuming||!resume.current(stamp)||client!=target||android.os.SystemClock.elapsedRealtime()-requested>5000)return;
+                    String result=target==ownClient?ownClient.clipboard(text):officialClient.clipboard(text);
+                    final String received=toPc?null:boundedClipboard(result);
+                    runOnUiThread(()->{
+                        if(!foreground||!resume.current(stamp)||client!=target)return;
+                        if(!toPc)clipboard.setPrimaryClip(ClipData.newPlainText("Mando",received));
+                        Toast.makeText(this,toPc?(target==officialClient?"Texto enviado al portapapeles del PC":"Texto copiado al portapapeles del PC"):"Texto copiado al portapapeles del móvil",Toast.LENGTH_SHORT).show();
+                    });
+                } catch(Exception error) {
+                    runOnUiThread(()->{if(foreground&&resume.current(stamp))Toast.makeText(this,"No se pudo compartir. Comprueba conexión, texto (máx. 1000) y Windows desbloqueado",Toast.LENGTH_LONG).show();});
+                }
+            });
+        } catch(Exception error) {
+            Toast.makeText(this,"Copia un texto de hasta 1000 caracteres y vuelve a intentarlo",Toast.LENGTH_LONG).show();
+        }
     }
 
     private WebResourceResponse blocked() {
@@ -343,6 +397,9 @@ public final class MainActivity extends Activity {
                             result.put("imeVisible",imeVisible);
                         } else if ("/api/own-forget".equals(path)) {
                             ownClient.close();deviceStore.forget();result.put("ok",true);
+                        } else if ("/api/clipboard".equals(path)) {
+                            if(foreground&&!resuming&&resume.current(stamp))runOnUiThread(() -> showClipboard());
+                            result.put("ok",true);
                         } else if ("/api/zoom-setup".equals(path)) {
                             runOnUiThread(() -> showZoomSetup());result.put("ok",true);
                         } else if ("/api/lock-setup".equals(path)) {

@@ -17,6 +17,7 @@ import threading
 import time
 
 from windows_input import WindowsInput, DryRunInput, KEYS, MODIFIERS
+from windows_clipboard import validate_text
 
 MAX_FRAME = 8192
 PORT = 1979
@@ -191,9 +192,18 @@ class State:
         with self.input_guard:
             self.adapter.execute(action)
 
+    def clipboard(self, data):
+        if not isinstance(data,dict) or data.get('direction') not in ('read','write'):
+            raise ValueError('Portapapeles invalido')
+        value=validate_text(data.get('text')) if data['direction']=='write' else None
+        if isinstance(self.adapter,DryRunInput): raise ValueError('Portapapeles no disponible en simulacion')
+        with self.input_guard:
+            from windows_clipboard import WindowsClipboard
+            return WindowsClipboard(self.adapter.default_desktop).exchange(value)
+
     def capabilities(self):
         return {'input': True, 'lock': True, 'task_view': True,
-                'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput),'persistent_pairing':True,'horizontal_scroll':True}
+                'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput),'persistent_pairing':True,'horizontal_scroll':True,'clipboard_text':not isinstance(self.adapter,DryRunInput)}
 
 
 class Handler(socketserver.BaseRequestHandler):
@@ -229,6 +239,13 @@ class Handler(socketserver.BaseRequestHandler):
                 operation = request.get('op')
                 if operation == 'status':
                     response = {'ok':True, 'capabilities':self.server.state.capabilities()}
+                elif operation == 'clipboard':
+                    try:
+                        text=self.server.state.clipboard(request.get('action'))
+                        response={'ok':True}
+                        if text is not None: response['text']=text
+                    except (ValueError,RuntimeError,OSError,UnicodeError):
+                        response={'error':'Portapapeles no disponible: comprueba texto, longitud y escritorio desbloqueado'}
                 elif operation == 'action':
                     try:
                         self.server.state.execute(request.get('action'))

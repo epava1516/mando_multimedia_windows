@@ -87,3 +87,9 @@ Arrastra un dedo por el borde derecho para rueda vertical: hacia abajo baja la p
 El scroll de dos dedos en el centro mantiene el movimiento natural del contenido. Se espera a que ambos dedos se muevan para evitar interpretar actualizaciones desfasadas como un pellizco. Un gesto iniciado en un borde no se mezcla con zoom ni movimiento del cursor.
 
 El servidor oficial tiene rueda horizontal nativa (`w 2`/`w 3`), por lo que no se deja Shift pulsado entre datagramas. Se compensa su muestra de rueda nula tras reposo y se agrupan muestras de alta resolución; no se reintentan comandos tras errores. La magnitud sigue dependiendo de su ajuste de scroll. Evidencia en `../evidence/HORIZONTAL_SCROLL.md`. Para el servidor propio actualiza también el paquete Windows; con uno antiguo la app avisa y conserva la conexión.
+
+## Volumen mantenido y portapapeles (alpha.7)
+
+Mantén + o − para repetir volumen en Control o IR. Soltar, cambiar de pestaña o salir detiene la repetición.
+
+En Teclado → Portapapeles (también al final de la barra sobre el teclado Android), elige Móvil → PC o PC → móvil después de copiar texto en el origen. Solo texto, máximo 1000 unidades UTF-16; no pega en la ventana activa ni sincroniza en segundo plano. El oficial usa su puerto TCP1979 y confirma únicamente el envío al escribir; requiere probar la recepción en Windows. El propio requiere servidor alpha.7 y Windows desbloqueado.

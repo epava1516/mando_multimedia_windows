@@ -1,5 +1,14 @@
 # Historial
 
+## 0.5.0-alpha.7 — volumen mantenido y portapapeles
+
+- Mantener volumen más/menos repite hasta soltar, tanto en Windows como en IR. Se cancela al cambiar de pestaña, pausar, perder foco o desconectar; una sola operación pendiente.
+- Portapapeles de texto manual Móvil → PC / PC → móvil desde Teclado y la barra nativa, hasta 1000 unidades UTF-16. Sin copiar ni pegar automáticamente.
+- Compatible con Dock TCP1979 del oficial (escritura sin ACK: solo confirma envío) y con el servidor propio actualizado mediante TLS y autorización existente.
+- Servidor propio limita acceso al escritorio normal; no reenvía el portapapeles al broker de bloqueo.
+- 29 tests Python, vectores JVM del codec y regresión de gestos/volumen correctos. Prueba física de portapapeles y volumen mantenido pendiente.
+
+
 ## 0.5.0-alpha.6 — barra sobre el teclado Android
 
 - Fila nativa con desplazamiento horizontal entre el editor y el teclado Android: flechas, Ctrl/Alt/Shift/Win, Esc, Tab, Inicio/Fin, Re/Av Pág y Supr.

@@ -174,6 +174,20 @@ class TLSTests(unittest.TestCase):
         self.assertEqual(self.adapter.executed,[server.validate_action(action) for action in actions])
         server.send(connection,{'op':'status','id':9});self.assertTrue(server.receive(connection)['capabilities']['dry_run'])
 
+    def test_clipboard_requires_pairing_and_sequences(self):
+        connection=self.connect()
+        with patch.object(self.state,'clipboard',return_value='sentinel') as exchange:
+            server.send(connection,{'op':'clipboard','id':1,'action':{'direction':'read'}})
+            self.assertIn('error',server.receive(connection));exchange.assert_not_called()
+        connection=self.pair()
+        with patch.object(self.state,'clipboard',return_value='sentinel') as exchange:
+            request={'op':'clipboard','id':1,'action':{'direction':'read'}}
+            server.send(connection,request)
+            self.assertEqual(server.receive(connection),{'ok':True,'id':1,'text':'sentinel'})
+            server.send(connection,request)
+            with self.assertRaises((EOFError,OSError)):server.receive(connection)
+            exchange.assert_called_once_with({'direction':'read'})
+
     def test_resume_works_after_pin_expired(self):
         first=self.pair();device=self.last_device;first.close()
         self.state.pin_until=-1

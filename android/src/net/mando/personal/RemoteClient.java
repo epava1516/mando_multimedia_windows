@@ -33,6 +33,10 @@ final class RemoteClient implements InputClient {
     private volatile DatagramSocket commandSocket;
     private volatile boolean ready;
     private int version;
+    private volatile Network connectedNetwork;
+    private volatile InetAddress connectedAddress;
+    private volatile Socket clipboardSocket;
+    private double lastClipboardTimestamp;
     private long lastWheelAt=-1000;
     private static final Map<String,String> KEYS = new HashMap<>();
     static {
@@ -50,7 +54,9 @@ final class RemoteClient implements InputClient {
     int serverVersion() { return version; }
 
     public void close() {
-        ready=false;
+        ready=false;connectedNetwork=null;connectedAddress=null;
+        Socket dock=clipboardSocket;clipboardSocket=null;
+        if(dock!=null)try{dock.close();}catch(IOException ignored){}
         DatagramSocket previousCommand=commandSocket;commandSocket=null;
         if(previousCommand!=null)previousCommand.close();
         Socket previous=socket; socket=null;
@@ -108,7 +114,7 @@ final class RemoteClient implements InputClient {
             udpCandidate.bind(new InetSocketAddress(0));
             udpCandidate.connect(address,PORT);
             if(socket!=candidate) throw new IOException("Conexión cancelada");
-            version=handshake.getInt("version");lastWheelAt=-1000; ready=true;candidate.setSoTimeout(0);
+            version=handshake.getInt("version");lastWheelAt=-1000; connectedNetwork=network;connectedAddress=address;ready=true;candidate.setSoTimeout(0);
             Thread monitor=new Thread(() -> {
                 try {byte[] buffer=new byte[512]; while(socket==candidate && candidate.getInputStream().read(buffer)!=-1) { }}
                 catch(IOException ignored) { }
@@ -120,6 +126,28 @@ final class RemoteClient implements InputClient {
             if(commandSocket==udpCandidate)commandSocket=null;
             if(socket==candidate) close(); else try{candidate.close();}catch(IOException ignored){ }
             throw error;
+        }
+    }
+
+    synchronized String clipboard(String text)throws Exception {
+        Network network=connectedNetwork;InetAddress address=connectedAddress;
+        if(!isConnected()||network==null||address==null)throw new IOException("Vuelve a conectar al PC");
+        byte[] key=new byte[8],mask=new byte[1];
+        java.security.SecureRandom random=new java.security.SecureRandom();random.nextBytes(key);random.nextBytes(mask);
+        double timestamp=Math.max(System.currentTimeMillis()/1000.0,lastClipboardTimestamp+0.000001);
+        lastClipboardTimestamp=timestamp;
+        byte[] frame=ClipboardProtocol.request(text,timestamp,mask[0],key);
+        Socket dock=new Socket();clipboardSocket=dock;
+        try {
+            network.bindSocket(dock);dock.setSoTimeout(4000);dock.setTcpNoDelay(true);
+            dock.connect(new InetSocketAddress(address,1979),3000);
+            if(!isConnected()||connectedNetwork!=network)throw new IOException("Conexión cancelada");
+            dock.getOutputStream().write(frame);dock.getOutputStream().flush();
+            // Official writes have no acknowledgement: report sent, never verified success.
+            return text==null?ClipboardProtocol.read(new DataInputStream(dock.getInputStream()),key):null;
+        } finally {
+            if(clipboardSocket==dock)clipboardSocket=null;
+            try{dock.close();}catch(IOException ignored){}
         }
     }
 
