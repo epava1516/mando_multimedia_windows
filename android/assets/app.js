@@ -1,6 +1,8 @@
 'use strict';
 const $ = id => document.getElementById(id);
 let paired = false;
+let suspended = false;
+let uiGeneration = 0;
 let connectionMode = 'official';
 let ownDeviceSaved = false;
 let activeTab = 'touch';
@@ -26,6 +28,9 @@ function status(message, error = false) {
   if (showNotice) noticeTimer = setTimeout(() => {$('notice').hidden = true;}, 5000);
 }
 function setPaired(value) {
+  suspended = false;
+  $('restoring').hidden = true;
+  document.body.classList.remove('session-paused');
   paired = value;
   if (!value && activeTab === 'keyboard') selectTab('touch');
   $('pairing').hidden = value || activeTab !== 'touch';
@@ -49,12 +54,35 @@ async function api(path, data) {
   if (!window.MandoNative) throw new Error('El puente Android no está disponible.');
   const id = String(++nativeSequence);
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {nativePending.delete(id); reject(new Error('El PC no responde; vuelve a conectar.'));}, path === '/api/scan' ? 30000 : path === '/api/pair' ? 20000 : 8000);
+    const timer = setTimeout(() => {nativePending.delete(id); reject(new Error('El PC no responde; vuelve a conectar.'));}, path === '/api/scan' || path === '/api/status' ? 30000 : path === '/api/pair' ? 20000 : 8000);
     nativePending.set(id, {resolve, reject, timer});
     window.MandoNative.request(id, JSON.stringify({path, data}));
   });
 }
-window.mandoDisconnected = () => {$('own-code').value = ''; setPaired(false); status('Desconectado al salir de la app.');};
+function suspendSession(label) {
+  uiGeneration++;suspended=true;paired=false;
+  $('own-code').value='';
+  pointers.clear();dx=dy=0;resetModifiers();
+  document.body.classList.add('session-paused');
+  $('pairing').hidden=true;
+  $('restoring').hidden=activeTab!=='touch'||!$('touch').hidden;
+  $('connection').textContent=label;
+  $('connection').classList.remove('online');
+}
+window.mandoSuspended=()=>suspendSession('En pausa');
+window.mandoResuming=()=>suspendSession('Reconectando…');
+window.mandoSessionResult=result=>{
+  if(result.resuming){window.mandoResuming();return;}
+  connectionMode=result.mode||connectionMode;
+  setPaired(Boolean(result.paired));
+  if(result.lockHelperInstalled!==undefined)window.mandoLockChanged(result.lockHelperInstalled);
+  if(result.zoomHelperInstalled!==undefined)window.mandoZoomChanged(result.zoomHelperInstalled);
+  if(result.failed){selectTab('touch');status(result.error||'No se pudo recuperar la conexión. Pulsa Conectar.',true);}
+  else if(result.recovered)status('Conexión recuperada.');
+};
+// Backward-compatible callback for old installed native builds used by UI fixtures.
+window.mandoDisconnected=()=>{uiGeneration++;setPaired(false);};
+
 window.mandoKeyboardError = message => {status(message, true);};
 window.mandoImeChanged = visible => {
   document.body.classList.toggle('ime-open', Boolean(visible));
@@ -149,7 +177,8 @@ api('/api/settings').then(settings => {
 }).catch(error => status(error.message, true));
 setInterval(() => {
   if (paired && !document.hidden) api('/api/status').then(result => {
-    if (!result.paired) {setPaired(false); status('El servidor ha cerrado la conexión. Vuelve a conectar.', true);}
+    if(result.resuming)window.mandoResuming();
+    else if (!result.paired&&!suspended) {setPaired(false); status('El servidor ha cerrado la conexión. Vuelve a conectar.', true);}
   }).catch(() => {});
 }, 5000);
 $('scan').addEventListener('click', async () => {
@@ -167,14 +196,18 @@ $('scan').addEventListener('click', async () => {
 function action(data) {
   if (!paired || queued >= 24) return Promise.reject(new Error('Espera a que termine el envío al PC'));
   queued++;
+  const stamp=uiGeneration;
   const next = chain.then(() => {
+    if(stamp!==uiGeneration)return {expired:true};
     if (!paired) throw new Error('Vuelve a vincular el PC');
     return api('/api/action', data).then(result => {
-      if (result.expired) status('El gesto ha caducado. Vuelve a intentarlo.', true);
+      if (result.expired&&stamp===uiGeneration&&!suspended) status('El gesto ha caducado. Vuelve a intentarlo.', true);
       return result;
     });
   });
-  chain = next.catch(error => {status(error.message, true); setPaired(false);}).finally(() => queued--);
+  chain = next.catch(error => {
+    if(stamp===uiGeneration&&!suspended){status(error.message,true);setPaired(false);}
+  }).finally(() => queued--);
   return next;
 }
 function resetModifiers() {
@@ -238,8 +271,9 @@ function selectTab(tab) {
     button.setAttribute('aria-pressed', String(active));
     $(button.dataset.tab).hidden = !active;
   });
-  $('pairing').hidden = paired || tab !== 'touch';
+  $('pairing').hidden = paired || suspended || tab !== 'touch';
   $('touch').hidden = !paired || tab !== 'touch';
+  $('restoring').hidden = !suspended || tab !== 'touch';
   $('connection-help').textContent = tab === 'ir' ? 'LGTV1 · Infrarrojos' : connectionMode === 'own' ? 'Mando propio · TLS' : 'Servidor oficial · Wi-Fi';
   if (tab === 'keyboard') openAndroidKeyboard();
   else api('/api/keyboard', {visible: false}).catch(() => {});
@@ -315,7 +349,8 @@ $('text-form').addEventListener('submit', async event => {
   finally {$('send-text').disabled = false;}
 });
 $('disconnect').addEventListener('click', async () => {
-  try {await chain; await api('/api/logout', {}); setPaired(false); status('Conexión con el PC cerrada.');}
+  uiGeneration++;setPaired(false);
+  try {await api('/api/logout', {}); status('Conexión con el PC cerrada.');}
   catch (error) {status(error.message, true);}
 });
 // Movement is coalesced, not queued once per pointer event. No automatic retries.
@@ -425,7 +460,7 @@ function endPointer(event) {
 document.addEventListener('visibilitychange', () => {pointers.clear(); dx = dy = 0; resetModifiers();});
 api('/api/status').then(result => {
   connectionMode = result.mode || 'official';
-  setPaired(result.paired);
+  window.mandoSessionResult(result);
   window.mandoImeChanged(result.imeVisible || false);
   if (result.dryRun) status('SIMULACIÓN: puedes probar la interfaz; no se controla ningún ordenador.');
-}).catch(error => status(error.message, true));
+}).catch(error => {if(!suspended){setPaired(false);status(error.message,true);}});

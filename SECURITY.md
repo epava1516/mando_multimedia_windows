@@ -21,3 +21,7 @@ Las autorizaciones son secretos aleatorios de 256 bits: Windows almacena hashes 
 El servidor de red no se eleva. El broker SYSTEM está en Program Files con ACL protegida, no escucha en red y solo acepta el SID autorizado de la consola activa. Su pipe rechaza acceso remoto y su PID se verifica contra SCM. El trabajador usa exclusivamente la sesión/Winlogon que decide el servicio, con canal privado SYSTEM, y valida bloqueo/escritorio antes de inyectar. Solo hay acciones de entrada permitidas; no rutas ni ejecución arbitraria de órdenes. El zoom ejecuta una ruta fija como usuario normal.
 
 La instalación privilegiada se hace de forma explícita con Instalar-MandoCompleto.ps1. UAC, otras sesiones, RDP y primer login quedan fuera de esta fase. Compilación e instalación IPC pasan en CI; entrada física Winlogon sigue pendiente. La identidad TLS y los hashes viven en LocalAppData/MandoServer y no se distribuyen.
+
+## Recuperación de sesión Android
+
+El periodo de gracia de 20 minutos conserva solo la intención de recuperar el último PC al volver al primer plano. Se cierran los sockets al salir, se invalidan las entradas en cola y no se reintentan comandos. Cada nueva conexión vuelve a verificar el saludo oficial o el certificado/autorización propios. Un contador de generación impide que un intento tardío anule Desconectar o envíe entradas a una nueva sesión. El reloj monotónico y contador de arranques limitan el periodo persistido.

@@ -1,4 +1,4 @@
-# Mando Android · experimental 0.5.0-alpha.2
+# Mando Android · experimental 0.5.0-alpha.3
 
 APK propio, paquete `net.mando.personal`, nombre **Mando**. No sustituye ni modifica Remote Mouse. Requiere Android 9 o posterior y el servidor oficial de Windows 5.30 o posterior con TCP y UDP 1978 accesibles.
 
@@ -16,7 +16,7 @@ Corrección de transporte: TCP sirve para el saludo y la supervisión de conexi�
 2. En Mando, introduce la IP privada del PC y pulsa **Conectar**. Usa la dirección de tu propio ordenador; el campo se puede editar.
 3. Para descubrirlo si cambia de red, pulsa **Buscar en Wi-Fi**: comprueba únicamente TCP 1978, hasta 254 direcciones del segmento Wi-Fi, y muestra servidores cuyo saludo `SIN` anuncia Windows compatible. En redes mayores que /24 la búsqueda se limita al /24 que contiene al móvil; puedes introducir cualquier otra IP privada manualmente.
 
-El socket se vincula a la red Wi-Fi física, no a la VPN. Si la VPN no permite ese acceso, excluye únicamente **Mando** en la configuración del túnel; no es necesario desactivar la VPN para las otras aplicaciones. Al salir de Mando se cierra la conexión. Al regresar, pulsa Conectar de nuevo.
+El socket se vincula a la red Wi-Fi física, no a la VPN. Si la VPN no permite ese acceso, excluye únicamente **Mando** en la configuración del túnel; no es necesario desactivar la VPN para las otras aplicaciones. Al salir de Mando se cierra el transporte y se descartan las entradas pendientes. Si vuelves antes de 20 minutos se recupera automáticamente el último PC, sin repetir acciones; solo se muestra Conectar al fallar o caducar el plazo. Desconectar cancela la recuperación.
 
 Esta versión admite el modo `nop` anunciado por el servidor del usuario. Si el servidor requiere su propia contraseña, la app lo indica y cierra la conexión: no omite autenticación ni desactiva contraseñas del servidor.
 
@@ -70,6 +70,12 @@ El movimiento paralelo de dos dedos conserva el scroll. El gesto se clasifica tr
 
 Selecciona **Mando propio (experimental)** y pega una vez el código del paquete [Windows completo](../windows-server/README.md). Android verifica la huella del certificado por TLS antes de enviar el PIN. Después guarda únicamente la autorización de dispositivo con AES-256-GCM y Android Keystore, no una contraseña de Windows.
 
-Para volver, selecciona el servidor propio y pulsa Conectar con el código vacío. Esto permite reconectar estando el PC bloqueado si el servidor sigue abierto. No hay conexión ni repetición automática de acciones. Ajustes → Olvidar PC propio borra esa autorización local; REVOKE en la consola Windows revoca dispositivos y sesiones.
+Para volver, selecciona el servidor propio y pulsa Conectar con el código vacío. Esto permite reconectar estando el PC bloqueado si el servidor sigue abierto. Desde alpha.3, la recuperación de conexión es automática durante 20 minutos; nunca se repiten acciones. Ajustes → Olvidar PC propio borra esa autorización local; REVOKE en la consola Windows revoca dispositivos y sesiones.
 
 El paquete Windows integra bloqueo, zoom y un broker local restringido para Winlogon. Se anuncia la disponibilidad del componente; eso no sustituye la prueba física de entrada en Windows. El servidor debe iniciarse en la cuenta autorizada antes de bloquear; no hay control de primer login, UAC ni RDP. La opción oficial y su búsqueda Wi-Fi se conservan; descubrimiento del servidor propio queda pendiente.
+
+## Recuperación de sesión (0.5.0-alpha.3)
+
+El plazo se cuenta desde la última salida con una conexión activa, con reloj monotónico. Un intento interrumpido o fallido no renueva el plazo. Los metadatos no secretos del destino se conservan de forma privada, asociados al contador de arranques del móvil; un reinicio invalida el plazo. La autorización del servidor propio sigue en Android Keystore.
+
+Durante la recuperación se mantiene la vista anterior y se deshabilita la entrada al PC. Si la actividad se recrea, muestra Recuperando conexión hasta conocer el resultado. Solo un fallo real o caducidad muestra la pantalla de conexión. No hay sockets ni comandos activos en segundo plano, ni reenvío de pulsaciones o gestos pendientes. Desconectar interrumpe un intento en curso y elimina el destino de recuperación. IR sigue siendo independiente.

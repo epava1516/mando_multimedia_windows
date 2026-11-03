@@ -23,7 +23,7 @@ La autorización del móvil se recuerda con Android Keystore y se puede revocar 
 
 Android 9 o posterior. Para controlar el PC, instala por separado el [servidor oficial Remote Mouse](https://www.remotemouse.net/downloads/RemoteMouse.exe) en Windows, versión 5.30 o posterior. Mando no modifica ni incluye esa aplicación. El PC y el móvil deben poder comunicarse por la Wi-Fi local, TCP/UDP 1978.
 
-Instala la APK, abre el servidor en Windows y pulsa **Buscar en Wi-Fi** en Mando, o introduce la IP privada del PC y pulsa **Conectar**. Si una VPN bloquea la conexión local, excluye solo Mando de ese túnel. Al salir de la app se desconecta; vuelve a conectar cuando regreses.
+Instala la APK, abre el servidor en Windows y pulsa **Buscar en Wi-Fi** en Mando, o introduce la IP privada del PC y pulsa **Conectar**. Si una VPN bloquea la conexión local, excluye solo Mando de ese túnel. La APK 0.5.0-alpha.3 recupera automáticamente el último PC si vuelves antes de 20 minutos. Mantiene la última vista mientras reconecta y solo muestra Conectar si falla o caduca el plazo. Desconectar cancela esa recuperación.
 
 Para bloquear el PC, sigue [la instalación de MandoLock](windows-lock/README.md). Para IR, apunta el emisor del móvil al televisor. No hace falta instalar Lean Remote: solo se incorporan las cinco señales del perfil solicitado.
 

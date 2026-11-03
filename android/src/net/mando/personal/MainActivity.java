@@ -47,6 +47,9 @@ public final class MainActivity extends Activity {
     private volatile boolean foreground;
     private InfraredController infrared;
     private DeviceStore deviceStore;
+    private final ResumeWindow resume = new ResumeWindow();
+    private final Object resumeStoreLock=new Object();
+    private volatile boolean resuming;
     private volatile boolean imeVisible;
     private boolean zoomSetupShowing;
 
@@ -54,6 +57,7 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         infrared = new InfraredController(this);
         deviceStore = new DeviceStore(this);
+        restoreResumeCheckpoint();
         if(Build.VERSION.SDK_INT>=30)getWindow().setDecorFitsSystemWindows(false);
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -105,6 +109,9 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         web.setBackgroundColor(0xff102323);
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view,String url) {
+                if(foreground&&resuming)web.evaluateJavascript("window.mandoResuming && window.mandoResuming()",null);
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return true; // No page navigation, external hosts, or executable target content.
             }
@@ -148,13 +155,15 @@ public final class MainActivity extends Activity {
     }
 
     private void sendKeyboard(final JSONObject action) {
-        if(destroyed || !client.isConnected())return;
+        if(destroyed || !foreground || resuming || !client.isConnected())return;
+        final long stamp=resume.generation();
         try {
             worker.execute(() -> {
+                if(!foreground||!resume.current(stamp))return;
                 try {client.action(action);}
                 catch(Exception error) {
                     runOnUiThread(() -> {
-                        if(!destroyed) {
+                        if(!destroyed && resume.current(stamp)) {
                             showKeyboard(false);
                             web.evaluateJavascript("window.mandoKeyboardError("+JSONObject.quote(safeMessage(error))+")",null);
                         }
@@ -223,14 +232,23 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void request(final String id, final String raw) {
             if (id == null || !id.matches("[0-9]{1,9}") || raw == null || raw.length() > 8192 || destroyed) return;
             final long requestedAt = android.os.SystemClock.elapsedRealtime();
+            final JSONObject request;
+            final String requestPath;
+            try {request=new JSONObject(raw);requestPath=request.getString("path");}
+            catch(Exception invalid){try{reply(id,new JSONObject().put("error","Petición inválida"));}catch(Exception ignored){}return;}
+            if("/api/logout".equals(requestPath)||"/api/pair".equals(requestPath)||
+                    ("/api/own-forget".equals(requestPath)&&(client==ownClient||resume.owns("own"))))cancelResume();
+            final long stamp=resume.generation();
+            final boolean duringRecovery=resuming;
             try {
                 worker.execute(() -> {
                     JSONObject result = new JSONObject();
                     try {
-                        JSONObject request = new JSONObject(raw);
-                        String path = request.getString("path");
+                        String path = requestPath;
                         JSONObject data = request.optJSONObject("data");
-                        if ("/api/ir/status".equals(path)) {
+                        boolean input="/api/action".equals(path)||"/api/lock".equals(path)||"/api/keyboard".equals(path)||"/api/ir/send".equals(path);
+                        if(input && (!foreground||!resume.current(stamp)||(duringRecovery&&!"/api/ir/send".equals(path))))result.put("expired",true);
+                        else if ("/api/ir/status".equals(path)) {
                             result.put("available", infrared.isAvailable());
                             result.put("profile", "LGTV1");
                         } else if ("/api/ir/send".equals(path)) {
@@ -243,7 +261,7 @@ public final class MainActivity extends Activity {
                             if(client==ownClient && ownClient.isConnected()) {
                                 try {ownClient.refreshStatus();}catch(Exception ignored){ }
                             }
-                            result.put("mode",client==ownClient ? "own" : "official");
+                            result=sessionState();
                             result.put("paired", client.isConnected());
                             result.put("dryRun", client==ownClient && ownClient.isDryRun());
                             result.put("imeVisible",imeVisible);
@@ -288,7 +306,7 @@ public final class MainActivity extends Activity {
                             runOnUiThread(() -> showKeyboard(visible));result.put("ok",true);
                         } else if ("/api/pair".equals(path)) {
                             if (data == null) throw new IOException("Falta la dirección del PC");
-                            if(!foreground)throw new IOException("Abre Mando para conectar");
+                            if(!foreground||!resume.current(stamp))throw new IOException("Abre Mando para conectar");
                             officialClient.close();ownClient.close();
                             String mode=data.optString("mode","official");
                             if(!"own".equals(mode) && !"official".equals(mode))throw new IOException("Tipo de servidor inválido");
@@ -301,7 +319,9 @@ public final class MainActivity extends Activity {
                                     deviceStore.save(profile);
                                 }catch(Exception error){ownClient.close();throw error;}
                             } else officialClient.connect(network,data.getString("host"));
-                            if(!foreground){officialClient.close();ownClient.close();throw new IOException("Conexión cancelada");}
+                            if(!resume.connected(stamp,new ResumeWindow.Target(mode,own?"":data.getString("host")))) {
+                                officialClient.close();ownClient.close();throw new IOException("Conexión cancelada");
+                            }
                             client=own ? ownClient : officialClient;
                             result.put("ok", true).put("mode",own ? "own" : "official");
                             result.put("version", own ? "Mando v1 TLS" : String.valueOf(officialClient.serverVersion()));
@@ -328,13 +348,75 @@ public final class MainActivity extends Activity {
                             }
                         } else throw new IOException("Acción no permitida");
                     } catch (Exception e) {
-                        try { result.put("error", safeMessage(e)); } catch (Exception ignored) { }
+                        try {
+                            if(!resume.current(stamp) && ("/api/action".equals(requestPath)||"/api/lock".equals(requestPath)||"/api/keyboard".equals(requestPath)||"/api/ir/send".equals(requestPath)))result.put("expired",true);
+                            else result.put("error",safeMessage(e));
+                        } catch(Exception ignored){ }
                     }
                     reply(id, result);
                 });
             } catch (java.util.concurrent.RejectedExecutionException busy) {
                 try { reply(id, new JSONObject().put("error", "Demasiadas acciones pendientes. Espera un momento.")); }
                 catch (Exception ignored) { }
+            }
+        }
+    }
+
+    private int bootCount() {
+        try{return android.provider.Settings.Global.getInt(getContentResolver(),android.provider.Settings.Global.BOOT_COUNT,-1);}
+        catch(Exception ignored){return -1;}
+    }
+    private void restoreResumeCheckpoint() {
+        android.content.SharedPreferences prefs=getPreferences(MODE_PRIVATE);
+        int boot=bootCount();
+        if(boot<0 || prefs.getInt("resumeBoot",-2)!=boot)return;
+        String mode=prefs.getString("resumeMode","");
+        long paused=prefs.getLong("resumePaused",-1),now=android.os.SystemClock.elapsedRealtime();
+        if(paused<0 || now<paused || now-paused>=ResumeWindow.TTL_MS)return;
+        if(!"own".equals(mode)&&!"official".equals(mode))return;
+        resume.restore(new ResumeWindow.Target(mode,prefs.getString("resumeHost","")),paused);
+    }
+    private void saveResumeCheckpoint(){saveResumeCheckpoint(false);}
+    private void saveResumeCheckpoint(boolean immediate) {
+        ResumeWindow.Snapshot checkpoint=resume.checkpoint();
+        android.content.SharedPreferences.Editor prefs=getPreferences(MODE_PRIVATE).edit();
+        if(checkpoint==null)prefs.remove("resumePaused").remove("resumeMode").remove("resumeHost").remove("resumeBoot");
+        else prefs.putLong("resumePaused",checkpoint.pausedAt).putString("resumeMode",checkpoint.target.mode)
+            .putString("resumeHost",checkpoint.target.host).putInt("resumeBoot",bootCount());
+        if(immediate)prefs.commit();else prefs.apply();
+    }
+    private void cancelResume() {
+        synchronized(resumeStoreLock){resume.clear();resuming=false;saveResumeCheckpoint(true);}
+        officialClient.close();ownClient.close();
+    }
+    private JSONObject sessionState()throws Exception {
+        return new JSONObject().put("paired",client.isConnected()).put("resuming",resuming)
+            .put("mode",client==ownClient?"own":"official").put("dryRun",client==ownClient&&ownClient.isDryRun())
+            .put("lockHelperInstalled",client==ownClient||getPreferences(MODE_PRIVATE).getBoolean("lockHelperInstalled",false))
+            .put("zoomHelperInstalled",client==ownClient?ownClient.supportsZoom():getPreferences(MODE_PRIVATE).getBoolean("zoomHelperInstalled",false));
+    }
+    private void publishSession(JSONObject result){publishSession(result,resume.generation());}
+    private void publishSession(JSONObject result,long stamp) {
+        runOnUiThread(() -> {if(!destroyed&&foreground&&resume.current(stamp))web.evaluateJavascript("window.mandoSessionResult && window.mandoSessionResult("+result.toString()+")",null);});
+    }
+    private void recoverSession(ResumeWindow.Ticket ticket) {
+        try {
+            if(!resume.current(ticket.generation))return;
+            Network network=wifi();
+            boolean own="own".equals(ticket.target.mode);
+            if(own) {
+                JSONObject saved=deviceStore.load();
+                if(saved==null)throw new IOException("Vuelve a emparejar el servidor propio");
+                ownClient.connect(network,"",saved);
+            } else officialClient.connect(network,ticket.target.host);
+            if(!resume.connected(ticket.generation,ticket.target)){officialClient.close();ownClient.close();return;}
+            client=own?ownClient:officialClient;resuming=false;
+            publishSession(sessionState().put("recovered",true),ticket.generation);
+        } catch(Exception error) {
+            officialClient.close();ownClient.close();
+            if(resume.current(ticket.generation)) {
+                resuming=false;
+                try {publishSession(sessionState().put("failed",true).put("error",safeMessage(error)),ticket.generation);}catch(Exception ignored){ }
             }
         }
     }
@@ -348,21 +430,30 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onStart() {
-        super.onStart();
-        foreground = true;
+        super.onStart();foreground=true;
+        ResumeWindow.Ticket ticket=resume.start(android.os.SystemClock.elapsedRealtime());
+        resuming=ticket!=null;
+        if(ticket!=null) {
+            web.evaluateJavascript("window.mandoResuming && window.mandoResuming()",null);
+            try {worker.execute(() -> recoverSession(ticket));}
+            catch(java.util.concurrent.RejectedExecutionException busy) {
+                resuming=false;
+                try{publishSession(sessionState().put("failed",true).put("error","Espera un momento y vuelve a conectar."));}catch(Exception ignored){ }
+            }
+        } else try{publishSession(sessionState());}catch(Exception ignored){ }
     }
 
     @Override protected void onStop() {
-        foreground = false;
-        super.onStop();
-        editor.discard();
-        showKeyboard(false);
-        officialClient.close();ownClient.close(); // No commands remain active when leaving the controller.
-        if (web != null) web.evaluateJavascript("window.mandoDisconnected && window.mandoDisconnected()", null);
+        foreground=false;
+        synchronized(resumeStoreLock){resume.pause(android.os.SystemClock.elapsedRealtime(),client.isConnected());saveResumeCheckpoint();}
+        resuming=false;
+        super.onStop();editor.discard();showKeyboard(false);
+        officialClient.close();ownClient.close();
+        if(web!=null)web.evaluateJavascript("window.mandoSuspended && window.mandoSuspended()",null);
     }
 
     @Override protected void onDestroy() {
-        destroyed = true;
+        destroyed = true;resume.clear();
         officialClient.close();ownClient.close(); worker.shutdownNow();
         if (web != null) { web.removeJavascriptInterface("MandoNative"); web.destroy(); }
         super.onDestroy();

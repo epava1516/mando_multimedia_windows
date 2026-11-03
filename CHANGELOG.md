@@ -1,5 +1,13 @@
 # Historial
 
+## 0.5.0-alpha.3 — recuperación de sesión
+
+- Recupera automáticamente el último servidor si vuelves antes de 20 minutos, con la vista anterior mientras conecta.
+- Si falla o caduca el plazo, muestra Conectar. Desconectar cancela incluso una recuperación en curso.
+- Descarta entradas pendientes al salir; no envía controles en segundo plano ni los reproduce después.
+- Conserva metadatos privados de recuperación ante recreación del proceso y valida el arranque del móvil.
+- Regreso automático confirmado por el usuario en su móvil y servidor oficial. La parte propia sigue en pruebas.
+
 ## 0.5.0-alpha.2 — componentes propios integrados
 
 - Paquete Windows con servidor ejecutable sin Python externo, gestos y bloqueo directo.
@@ -44,4 +52,4 @@ Primera publicación estable, confirmada por el usuario.
 - Sin autenticación de servidores que requieran contraseña ni cifrado del canal UDP de compatibilidad. Sin vault.
 - Retroceder/avanzar requieren seleccionar primero el reproductor del navegador.
 - No incluye arrastre mantenido ni duplicación de pantalla.
-- Cierra la conexión al abandonar la app; la reconexión es manual.
+- Cierra el transporte al abandonar la app; recupera la conexión al volver durante 20 minutos desde alpha.3.

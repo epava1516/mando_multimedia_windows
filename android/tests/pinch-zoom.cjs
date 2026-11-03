@@ -110,8 +110,36 @@ const server = http.createServer((request, response) => {
     assert.equal(await page.locator('#own-code').inputValue(),'','pairing secret must clear after connecting');
     const pair=await page.evaluate(()=>window.pairRequests.at(-1));
     assert.equal(pair.mode,'own');assert.equal(pair.code,code);
+    // Returning must retain Control until native reconnect succeeds or fails.
+    await page.locator('[data-tab=touch]').click();
+    await page.evaluate(()=>{window.mandoSuspended();window.mandoResuming();});
+    assert(await page.locator('#pairing').isHidden(),'must not flash the connection form while recovering');
+    await page.locator('[data-key=PLAY_PAUSE]').dispatchEvent('click');
+    await page.waitForTimeout(60);
+    await page.evaluate(()=>window.mandoSessionResult({paired:true,mode:'own',recovered:true}));
+    assert(await page.locator('#pairing').isHidden(),'successful recovery stays in controls');
+    assert.equal(await page.locator('#connection').textContent(),'PC vinculado');
+    await page.evaluate(()=>{window.mandoSuspended();window.mandoResuming();window.mandoSessionResult({paired:false,failed:true,error:'PC apagado'});});
+    assert(await page.locator('#pairing').isVisible(),'show connection form after actual failure');
+    await page.evaluate(()=>window.mandoSessionResult({paired:true,mode:'official'}));
+    // Leave one native action pending and a second queued, then suspend and recover.
+    await page.evaluate(()=>{
+      const original=window.MandoNative.request;
+      window.heldActions=[];
+      window.MandoNative.request=(id,raw)=>{const q=JSON.parse(raw);if(q.path==='/api/action'){window.heldActions.push(id);return;}original(id,raw);};
+      document.querySelector('[data-key=NEXT]').click();
+      document.querySelector('[data-key=PREVIOUS]').click();
+    });
+    await page.waitForFunction(()=>window.heldActions.length===1);
+    await page.evaluate(()=>{
+      window.mandoSuspended();window.mandoResuming();window.mandoSessionResult({paired:true,mode:'official',recovered:true});
+      window.nativeReply(window.heldActions[0],{error:'Old socket closed'});
+    });
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(()=>window.heldActions.length),1,'queued actions must not replay on recovered PC');
+    assert(await page.locator('#pairing').isHidden(),'stale socket error must not undo successful recovery');
     assert.deepEqual(errors,[]);
-    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement, tap, Task View, zoom setup guard and own-server pairing UI: passed');
+    console.log('Pinch zoom, scrolling, jitter, cancellation, cursor movement, tap, Task View, zoom setup guard own-server pairing UI and resume UI: passed');
   } finally {
     if(browser)await browser.close();
     await new Promise(resolve=>server.close(resolve));

@@ -41,3 +41,5 @@
 .server-mode-label{display:flex!important;align-items:center;gap:10px;font-size:12px;flex-shrink:0}.server-mode-label select{flex:1;min-width:0;min-height:40px;font-size:13px;padding:6px}.pair-row #own-code{font-size:12px}.pairing{gap:8px}@media(max-height:650px){.pairing{gap:6px}.pairing h1{font-size:19px}.server-mode-label select{min-height:36px}}
 
 .settings-tools.saved-own{grid-template-columns:repeat(3,minmax(0,1fr))}.settings-tools.saved-own button{font-size:11px;padding:6px}
+
+.restoring{justify-content:center;align-items:center;color:var(--accent)}.session-paused #touch,.session-paused #keyboard,.session-paused #lock-pc{pointer-events:none;opacity:.65}
