@@ -543,3 +543,5 @@ api('/api/status').then(result => {
 }).catch(error => {if(!suspended){setPaired(false);status(error.message,true);}});
 
 $('server-diagnostics').addEventListener('click',()=>api('/api/server-diagnostics',{}).catch(error=>status(error.message,true)));
+
+$('server-diagnostics-advanced').addEventListener('click',()=>api('/api/server-diagnostics-advanced',{}).catch(error=>status(error.message,true)));

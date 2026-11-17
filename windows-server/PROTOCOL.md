@@ -37,8 +37,16 @@ UDP1980 recibe exactamente `MANDO_DISCOVER_V1 <nonce>` donde nonce tiene32 hex m
 
 ## Diagnóstico autenticado (alpha.13)
 
-La capacidad `diagnostics_v1:true` anuncia `{"op":"diagnostics","id":N}`. Se aplica el mismo TLS, autorización vigente y secuencia estricta que al resto de mensajes; no hay endpoint HTTP ni puerto adicional. Respuesta `{"ok":true,"id":N,"diagnostics":{...}}`, dentro del límite de8192 bytes. El servidor reutiliza el resultado durante2 segundos por conexión para limitar sondeos repetidos.
+La capacidad `diagnostics_v1:true` anuncia `{"op":"diagnostics","id":N}`. Se aplica el mismo TLS, autorización vigente y secuencia estricta que al resto de mensajes; no hay endpoint HTTP ni puerto adicional. Respuesta `{"ok":true,"id":N,"diagnostics":{...}}`, dentro del límite de8192 bytes. El servidor reutiliza el resultado durante5 segundos por conexión para limitar sondeos repetidos.
 
 Campos: server_version, uptime_s, clients, desktop y events. `desktop` permite únicamente service_reachable, probe, worker_running, worker_verified, locked (si se obtuvo), last_stage, last_win32. Un servicio accesible no equivale a entrada de bloqueo lista; el diagnóstico no arranca el worker ni inyecta entrada. Un código Win32 cero significa que no se capturó un error nativo, no éxito de la operación.
 
 Historial en memoria de los24 eventos más recientes desde el arranque: SERVER_STARTED, DEVICE_CONNECTED, DEVICE_DISCONNECTED, INPUT_REJECTED, CLIPBOARD_UNAVAILABLE. Cada uno lleva fecha UTC. No incluye acciones, texto, rutas, excepciones crudas, IP, nombres de cuenta, PIN, tokens, claves o portapapeles. No lee archivos de logs ni persiste el historial. Copiar el diagnóstico es una acción explícita en el móvil.
+
+## Diagnóstico avanzado (alpha.14)
+
+Capacidad `diagnostics_advanced_v1` y operación fija `diagnostics_advanced`, sin parámetros ejecutables. Devuelve el diagnóstico básico más advanced.local, advanced.previous y advanced.pipe. Caché separada por conexión y operación de5 segundos. Reutiliza el límite8192 bytes y toda la autenticación/secuencia/revocación existentes.
+
+Comprobaciones locales de solo lectura: estado/PID/cuenta clasificada del servicio (LOCAL_SYSTEM/OTHER), comparación de la cuenta actual con el archivo fijo allowed.sid (sin devolver SID/nombre), sesión del proceso y consola activa. No se permite elegir archivos, servicios, comandos o argumentos. No cambia configuración ni permisos.
+
+El sondeo avanzado cierra el canal propio previo y abre uno nuevo con comprobación de PID/SCM; solo envía status y espera hasta2 segundos, sin iniciar worker ni repetir entrada. Trace conserva hasta16 etapas, tiempos y cantidades de bytes, nunca su contenido. Distingue WIN32, TIMEOUT, EOF, IDENTITY_MISMATCH y razones cerradas de rechazo de sesión/cuenta del broker. Win32 cero no se presenta como éxito. `pid_matches:null` o identidad/sesión desconocida permanecen sin confirmar.

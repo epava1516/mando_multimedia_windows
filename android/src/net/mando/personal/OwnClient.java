@@ -121,10 +121,12 @@ final class OwnClient implements InputClient {
             return reply;
         }catch(Exception error){close();throw error;}
     }
-    JSONObject diagnostics() throws Exception {
+    JSONObject diagnostics(boolean advanced) throws Exception {
         if(!capabilities.optBoolean("diagnostics_v1",false))
             throw new IOException("Actualiza Mando Server a alpha.13 o posterior para consultar el diagnóstico");
-        return request("diagnostics",null).getJSONObject("diagnostics");
+        if(advanced&&!capabilities.optBoolean("diagnostics_advanced_v1",false))
+            throw new IOException("Actualiza Mando Server a alpha.14 o posterior para el diagnóstico avanzado");
+        return request(advanced?"diagnostics_advanced":"diagnostics",null).getJSONObject("diagnostics");
     }
     void refreshStatus() throws Exception {capabilities=request("status",null).getJSONObject("capabilities");}
     public void action(JSONObject data)throws Exception {request("action",data);}

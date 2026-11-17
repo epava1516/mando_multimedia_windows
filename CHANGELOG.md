@@ -162,3 +162,9 @@ Primera publicación estable, confirmada por el usuario.
 - Historial acotado en memoria y estado de servicio/worker; nunca transmite texto escrito, portapapeles, claves, tokens ni excepciones completas.
 - Broker devuelve última etapa fallida y código Win32 capturado, diferenciando disponibilidad del servicio de la del worker. No cambia los permisos ni implementa soporte UAC.
 - Pruebas locales: 42 tests backend, dos fixtures nativos reservados para Windows. Compilación/firma Android personal y pública. Instalador y pruebas nativas en Windows CI.
+
+## Android 0.5.0-alpha.25 / Windows Server 0.5.0-alpha.14
+
+- Diagnóstico avanzado con comparación local de cuenta/sesión, estado y cuenta clasificada del servicio, PID y fases IPC.
+- Conserva códigos nativos y separa timeout/EOF/rechazo de identidad; sondeo nuevo limitado a2 segundos sin entrada ni arranque del worker.
+- Sin CMD, parámetros de ejecución, acceso a archivos seleccionables, nombres de cuenta o SID exportados. No cambia la política de UAC ni amplía privilegios.

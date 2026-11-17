@@ -222,10 +222,15 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         finally{if(process.process!=IntPtr.Zero)CloseHandle(process.process);if(process.thread!=IntPtr.Zero)CloseHandle(process.thread);if(token!=IntPtr.Zero)CloseHandle(token);if(original!=IntPtr.Zero)CloseHandle(original);}
         }
     }
-    bool Authorized(NamedPipeServerStream pipe,uint session) {
-        uint clientSession;if(!GetNamedPipeClientSessionId(pipe.SafePipeHandle,out clientSession)||clientSession!=session)return false;
-        string sid=null;pipe.RunAsClient(delegate{using(WindowsIdentity user=WindowsIdentity.GetCurrent(true)){if(user!=null&&user.User!=null)sid=user.User.Value;}});
-        return sid==allowedSid;
+    string AuthorizationFailure(NamedPipeServerStream pipe,uint session) {
+        if(session==UInt32.MaxValue)return "NO_CONSOLE";
+        uint clientSession;
+        if(!GetNamedPipeClientSessionId(pipe.SafePipeHandle,out clientSession))return "CLIENT_SESSION_QUERY";
+        if(clientSession!=session)return "CLIENT_SESSION_MISMATCH";
+        string sid=null;
+        try {pipe.RunAsClient(delegate{using(WindowsIdentity user=WindowsIdentity.GetCurrent(true)){if(user!=null&&user.User!=null)sid=user.User.Value;}});}
+        catch {return "CLIENT_IDENTITY";}
+        return sid==allowedSid?null:"CLIENT_ACCOUNT_MISMATCH";
     }
     void Serve() {
         try {
@@ -239,11 +244,13 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                             pipe.EndWaitForConnection(accept);
                         }
                         uint session=WTSGetActiveConsoleSessionId();
-                        if(session==UInt32.MaxValue||!Authorized(pipe,session))throw new IOException("Wrong client");
+                        string rejected=AuthorizationFailure(pipe,session);
+                        if(rejected!=null){Write(pipe,new{ok=false,reason=rejected});continue;}
                         while(!stopping&&pipe.IsConnected) {
                             Stage("REQUEST");
                             Dictionary<string,object> request=Read(pipe,30000);session=WTSGetActiveConsoleSessionId();
-                            if(session==UInt32.MaxValue||!Authorized(pipe,session))throw new IOException("Session changed");
+                            rejected=AuthorizationFailure(pipe,session);
+                            if(rejected!=null){Write(pipe,new{ok=false,reason=rejected});break;}
                             if(Text(request,"op")=="status") {
                                 bool running=worker!=null&&!worker.HasExited;
                                 Write(pipe,new{ok=true,available=true,locked=Locked(session),protocol=1,

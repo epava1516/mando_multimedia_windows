@@ -241,7 +241,7 @@ public final class MainActivity extends Activity {
         resetImeModifiers();
     }
 
-    private void showServerDiagnostics() {
+    private void showServerDiagnostics(boolean advanced) {
         if(!foreground || !ownClient.isConnected()) {
             Toast.makeText(this,"Conecta primero con el PC",Toast.LENGTH_SHORT).show();return;
         }
@@ -251,7 +251,7 @@ public final class MainActivity extends Activity {
         text.setPadding(dp(20),dp(16),dp(20),dp(16));
         android.widget.ScrollView scroll=new android.widget.ScrollView(this);
         scroll.setBackgroundColor(0xff1a1e29);scroll.addView(text);
-        final AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Diagnóstico del servidor")
+        final AlertDialog dialog=new AlertDialog.Builder(this).setTitle(advanced?"Diagnóstico avanzado":"Diagnóstico del servidor")
             .setView(scroll).setPositiveButton("Actualizar",null).setNeutralButton("Copiar",null)
             .setNegativeButton("Cerrar",null).create();
         diagnosticDialog=dialog;
@@ -262,12 +262,12 @@ public final class MainActivity extends Activity {
                     ClipData.newPlainText("Diagnóstico de Mando",text.getText()));
                 Toast.makeText(this,"Diagnóstico copiado",Toast.LENGTH_SHORT).show();
             });
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> refreshDiagnostics(dialog,text));
-            refreshDiagnostics(dialog,text);
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> refreshDiagnostics(dialog,text,advanced));
+            refreshDiagnostics(dialog,text,advanced);
         });
         dialog.show();
     }
-    private void refreshDiagnostics(AlertDialog dialog,android.widget.TextView text) {
+    private void refreshDiagnostics(AlertDialog dialog,android.widget.TextView text,boolean advanced) {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(false);
         text.setText("Consultando el servidor…");
@@ -276,9 +276,9 @@ public final class MainActivity extends Activity {
             String report;boolean valid=false;
             try {
                 if(!foreground || !resume.current(stamp))throw new IOException("Vuelve a abrir el diagnóstico");
-                report=DiagnosticText.format(ownClient.diagnostics());valid=true;
+                report=DiagnosticText.format(ownClient.diagnostics(advanced));valid=true;
             } catch(Exception error) {
-                report=ownClient.isConnected()?"Actualiza Mando Server a alpha.13 o posterior o vuelve a conectar.":
+                report=ownClient.isConnected()?"Actualiza Mando Server a alpha.14 o posterior o vuelve a conectar.":
                     "No se pudo consultar el servidor. Comprueba la conexión con el PC.";
             }
             final String output=report;final boolean copy=valid;
@@ -472,8 +472,8 @@ public final class MainActivity extends Activity {
                         JSONObject data = request.optJSONObject("data");
                         boolean input="/api/action".equals(path)||"/api/lock".equals(path)||"/api/keyboard".equals(path)||"/api/ir/send".equals(path);
                         if(input && (!foreground||!resume.current(stamp)||(duringRecovery&&!"/api/ir/send".equals(path))))result.put("expired",true);
-                        else if ("/api/server-diagnostics".equals(path)) {
-                            runOnUiThread(() -> {if(foreground&&!destroyed)showServerDiagnostics();});
+                        else if ("/api/server-diagnostics".equals(path)||"/api/server-diagnostics-advanced".equals(path)) {
+                            runOnUiThread(() -> {if(foreground&&!destroyed)showServerDiagnostics("/api/server-diagnostics-advanced".equals(path));});
                             result.put("ok",true);
                         } else if ("/api/ir/status".equals(path)) {
                             result.put("available", infrared.isAvailable());

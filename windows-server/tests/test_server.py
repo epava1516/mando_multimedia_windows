@@ -189,6 +189,23 @@ class TLSTests(unittest.TestCase):
         server.send(connection,{'op':'status','id':4})
         self.assertTrue(server.receive(connection)['ok'])
 
+    def test_advanced_diagnostics_auth_cache_and_no_input(self):
+        connection=self.connect()
+        with patch.object(self.state,'diagnostics') as diagnostic:
+            server.send(connection,{'op':'diagnostics_advanced','id':1})
+            self.assertIn('error',server.receive(connection));diagnostic.assert_not_called()
+        connection=self.pair()
+        bridge=Mock();bridge.request.return_value={'ok':True,'available':True}
+        bridge.advanced.return_value={'local':{'service_state':'RUNNING','service_account':'LOCAL_SYSTEM','username':'secret'},
+            'pipe':{'kind':'TIMEOUT','stage':'PIPE_READ_HEADER','trace':[{'stage':'PIPE_WRITE','at_ms':0}]*100}}
+        self.adapter.desktop_bridge=bridge
+        for number in (1,2):
+            server.send(connection,{'op':'diagnostics_advanced','id':number})
+            result=server.receive(connection)
+            self.assertTrue(result['ok']);self.assertIn('advanced',result['diagnostics'])
+            self.assertNotIn('secret',json.dumps(result));self.assertLess(len(json.dumps(result)),server.MAX_FRAME)
+        bridge.advanced.assert_called_once();self.assertEqual(self.adapter.executed,[])
+
     def test_tls_pair_actions_and_status(self):
         connection=self.pair()
         actions=[{'type':'move','dx':12,'dy':-7},{'type':'click','button':'left'},
