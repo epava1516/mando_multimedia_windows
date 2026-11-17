@@ -26,29 +26,29 @@ internal sealed class MandoUpdater : Form {
     volatile bool busy=true,cancelled,installing;
     HttpWebRequest request;
     sealed class Release {public string VersionText,Url,Hash;public Version Version;public int Bytes;}
-    static string Text(Dictionary<string,object> data,string key) {object value;return data.TryGetValue(key,out value)?value as string:null;}
+    static string Field(Dictionary<string,object> data,string key) {object value;return data.TryGetValue(key,out value)?value as string:null;}
     static Release Verify(string envelope,bool checkClock=true) {
         if(envelope==null||envelope.Length>8192)throw new IOException();
         var wrapper=Json.DeserializeObject(envelope) as Dictionary<string,object>;
         if(wrapper==null)throw new IOException();
-        byte[] body=Convert.FromBase64String(Text(wrapper,"payload")??""),signature=Convert.FromBase64String(Text(wrapper,"signature")??"");
+        byte[] body=Convert.FromBase64String(Field(wrapper,"payload")??""),signature=Convert.FromBase64String(Field(wrapper,"signature")??"");
         if(body.Length>4096||signature.Length!=384)throw new IOException();
         using(var rsa=new RSACryptoServiceProvider()) {
             rsa.PersistKeyInCsp=false;rsa.FromXmlString(PublicKey);
             if(!rsa.VerifyData(body,"SHA256",signature))throw new CryptographicException();
         }
         var data=Json.DeserializeObject(new UTF8Encoding(false,true).GetString(body)) as Dictionary<string,object>;
-        if(data==null)throw new IOException();string version=Text(data,"version");
+        if(data==null)throw new IOException();string version=Field(data,"version");
         Match match=Regex.Match(version??"",@"\A(\d{1,5})\.(\d{1,5})\.(\d{1,5})-alpha\.(\d{1,5})\z");
         if(!match.Success)throw new IOException();
         int[] parts=Enumerable.Range(1,4).Select(i=>Int32.Parse(match.Groups[i].Value)).ToArray();
         if(parts.Any(x=>x>65535))throw new IOException();
         string expected="https://mando.sherlockhomeless.net/downloads/MandoSetup-"+version+".exe";
-        string hash=Text(data,"sha256");object size;
-        if(Text(data,"url")!=expected||!Regex.IsMatch(hash??"",@"\A[a-f0-9]{64}\z")||!data.TryGetValue("bytes",out size)||!(size is int)||(int)size<1||(int)size>64*1024*1024)throw new IOException();
+        string hash=Field(data,"sha256");object size;
+        if(Field(data,"url")!=expected||!Regex.IsMatch(hash??"",@"\A[a-f0-9]{64}\z")||!data.TryGetValue("bytes",out size)||!(size is int)||(int)size<1||(int)size>64*1024*1024)throw new IOException();
         DateTime issued,expires;
-        if(!DateTime.TryParseExact(Text(data,"issued"),"yyyy-MM-dd'T'HH:mm:ss'Z'",null,System.Globalization.DateTimeStyles.AssumeUniversal|System.Globalization.DateTimeStyles.AdjustToUniversal,out issued)||
-           !DateTime.TryParseExact(Text(data,"expires"),"yyyy-MM-dd'T'HH:mm:ss'Z'",null,System.Globalization.DateTimeStyles.AssumeUniversal|System.Globalization.DateTimeStyles.AdjustToUniversal,out expires)||
+        if(!DateTime.TryParseExact(Field(data,"issued"),"yyyy-MM-dd'T'HH:mm:ss'Z'",null,System.Globalization.DateTimeStyles.AssumeUniversal|System.Globalization.DateTimeStyles.AdjustToUniversal,out issued)||
+           !DateTime.TryParseExact(Field(data,"expires"),"yyyy-MM-dd'T'HH:mm:ss'Z'",null,System.Globalization.DateTimeStyles.AssumeUniversal|System.Globalization.DateTimeStyles.AdjustToUniversal,out expires)||
            expires<=issued||(expires-issued).TotalDays>100||(checkClock&&(DateTime.UtcNow>expires||DateTime.UtcNow<issued.AddDays(-1))))throw new IOException();
         return new Release{VersionText=version,Version=new Version(parts[0],parts[1],parts[2],parts[3]),Url=expected,Hash=hash,Bytes=(int)size};
     }

@@ -170,3 +170,5 @@ Primera publicación estable, confirmada por el usuario.
 - Sin CMD, parámetros de ejecución, acceso a archivos seleccionables, nombres de cuenta o SID exportados. No cambia la política de UAC ni amplía privilegios.
 
 - El instalador abre Mando Server al finalizar por defecto con la identidad original previa a UAC (casilla desmarcable). La instalación silenciosa no abre ventanas. La bandeja continúa rechazando la ejecución elevada.
+
+- Botón Buscar actualización en el panel y bandeja: manifiesto firmado, verificación del instalador y regreso automático a la bandeja tras la instalación silenciosa. Mantiene el servidor disponible durante la descarga; requiere autorización UAC si Windows la solicita.

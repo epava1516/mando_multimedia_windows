@@ -98,6 +98,7 @@ jobs:
           if ($setup.ExitCode -ne 0) { throw 'Installer failed' }
           if ((Get-Service MandoDesktopBroker).Status -ne 'Running') { throw 'Installed service is not running' }
           if (-not (Test-Path "$env:ProgramFiles/Mando/MandoTray.exe")) { throw 'Tray launcher not installed' }
+          if (-not (Test-Path "$env:ProgramFiles/Mando/MandoUpdater.exe")) { throw 'Updater not installed' }
           $sid=(Get-Content "$env:ProgramFiles/MandoDesktop/mando-install.json" -Raw | ConvertFrom-Json).userSid
           $startupKey='Registry::HKEY_USERS\'+$sid+'\Software\Microsoft\Windows\CurrentVersion\Run'
           $expected='"'+$env:ProgramFiles+'\Mando\MandoTray.exe" --background'
