@@ -21,6 +21,9 @@ import subprocess
 from windows_input import WindowsInput, DryRunInput, KEYS, MODIFIERS
 from windows_clipboard import validate_text
 
+from diagnostics import Events, desktop_status
+
+VERSION = "0.5.0-alpha.13"
 MAX_FRAME = 8192
 PORT = 1979
 
@@ -103,6 +106,9 @@ class State:
         self.devices = self.load_devices()
         self.guard = threading.RLock()
         self.input_guard = threading.Lock()
+        self.started=clock()
+        self.events=Events()
+        self.events.add("SERVER_STARTED")
 
     def load_devices(self):
         if self.device_file is None or not self.device_file.exists(): return {}
@@ -192,7 +198,10 @@ class State:
                 raise ValueError('Demasiadas acciones')
             self.actions.append(now)
         with self.input_guard:
-            self.adapter.execute(action)
+            try:self.adapter.execute(action)
+            except (ValueError,RuntimeError,OSError):
+                self.events.add('INPUT_REJECTED')
+                raise
 
     def clipboard(self, data):
         if not isinstance(data,dict) or data.get('direction') not in ('read','write'):
@@ -203,8 +212,14 @@ class State:
             from windows_clipboard import WindowsClipboard
             return WindowsClipboard(self.adapter.default_desktop).exchange(value)
 
+    def diagnostics(self):
+        with self.input_guard:desktop=desktop_status(self.adapter)
+        with self.guard:clients=self.clients
+        return {'server_version':VERSION,'uptime_s':max(0,int(self.clock()-self.started)),
+                'clients':clients,'desktop':desktop,'events':self.events.snapshot()}
+
     def capabilities(self):
-        return {'input': True, 'lock': True, 'task_view': True,
+        return {'diagnostics_v1':True, 'input': True, 'lock': True, 'task_view': True,
                 'zoom': self.adapter.zoom_available(), 'secure_desktop': self.adapter.secure_desktop_available(), 'dry_run':isinstance(self.adapter,DryRunInput),'persistent_pairing':True,'horizontal_scroll':True,'clipboard_text':not isinstance(self.adapter,DryRunInput)}
 
 
@@ -229,7 +244,10 @@ class Handler(socketserver.BaseRequestHandler):
             response={'ok':True,'protocol':1,'capabilities':self.server.state.capabilities()}
             if credential:response['device']=credential
             send(connection,response)
+            self.server.state.events.add('DEVICE_CONNECTED')
             connection.settimeout(30)
+            diagnostic_at=-10.0
+            diagnostic_cache=None
             started, sequence = time.monotonic(), 0
             while time.monotonic()-started < 8*3600:
                 request = receive(connection, 30)
@@ -241,12 +259,19 @@ class Handler(socketserver.BaseRequestHandler):
                 operation = request.get('op')
                 if operation == 'status':
                     response = {'ok':True, 'capabilities':self.server.state.capabilities()}
+                elif operation == 'diagnostics':
+                    # Cache repeated polling per authenticated connection, without closing it.
+                    now=time.monotonic()
+                    if diagnostic_cache is None or now-diagnostic_at>=2:
+                        diagnostic_cache=self.server.state.diagnostics();diagnostic_at=now
+                    response={'ok':True,'diagnostics':diagnostic_cache}
                 elif operation == 'clipboard':
                     try:
                         text=self.server.state.clipboard(request.get('action'))
                         response={'ok':True}
                         if text is not None: response['text']=text
                     except (ValueError,RuntimeError,OSError,UnicodeError):
+                        self.server.state.events.add('CLIPBOARD_UNAVAILABLE')
                         response={'error':'Portapapeles no disponible: comprueba texto, longitud y escritorio desbloqueado'}
                 elif operation == 'action':
                     try:
@@ -262,6 +287,7 @@ class Handler(socketserver.BaseRequestHandler):
             pass
         finally:
             if paired:
+                self.server.state.events.add('DEVICE_DISCONNECTED')
                 self.server.state.unpair()
             if connection is not None:
                 connection.close()

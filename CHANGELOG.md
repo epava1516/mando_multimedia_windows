@@ -155,3 +155,10 @@ Primera publicación estable, confirmada por el usuario.
 
 - Notificación refinada con logo propio, marca monocroma legible, iconos multimedia de trazo uniforme y texto compacto. Color de marca solicitado a Android; la personalización del fabricante puede aplicar sus propios colores.
 - Vistas compacta y expandida revisadas en el móvil Xiaomi del usuario. No se ha cambiado su tamaño de texto ni tema global para las comprobaciones.
+
+## Android 0.5.0-alpha.24 / Windows Server 0.5.0-alpha.13
+
+- Diagnóstico del servidor en Ajustes, por TLS emparejado, con actualización y copia manual.
+- Historial acotado en memoria y estado de servicio/worker; nunca transmite texto escrito, portapapeles, claves, tokens ni excepciones completas.
+- Broker devuelve última etapa fallida y código Win32 capturado, diferenciando disponibilidad del servicio de la del worker. No cambia los permisos ni implementa soporte UAC.
+- Pruebas locales: 42 tests backend, dos fixtures nativos reservados para Windows. Compilación/firma Android personal y pública. Instalador y pruebas nativas en Windows CI.

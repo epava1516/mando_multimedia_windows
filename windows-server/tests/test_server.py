@@ -163,6 +163,32 @@ class TLSTests(unittest.TestCase):
         reply=server.receive(connection);self.last_device=reply['device'];self.assertTrue(reply['ok']);self.assertFalse(reply['capabilities']['secure_desktop'])
         return connection
 
+    def test_diagnostics_requires_pairing(self):
+        connection=self.connect()
+        with patch.object(self.state,'diagnostics') as diagnostic:
+            server.send(connection,{'op':'diagnostics','id':1})
+            self.assertIn('error',server.receive(connection));diagnostic.assert_not_called()
+
+    def test_diagnostics_is_bounded_and_does_not_expose_input(self):
+        connection=self.pair()
+        secret='not-for-diagnostic-URL-or-password'
+        server.send(connection,{'op':'action','id':1,'action':{'type':'text','text':secret}})
+        self.assertTrue(server.receive(connection)['ok'])
+        with patch.object(self.adapter,'execute',side_effect=OSError(secret)):
+            server.send(connection,{'op':'action','id':2,'action':{'type':'text','text':secret}})
+            self.assertIn('error',server.receive(connection))
+        for _ in range(100):self.state.events.add('INPUT_REJECTED')
+        server.send(connection,{'op':'diagnostics','id':3})
+        reply=server.receive(connection)
+        self.assertTrue(reply['ok']);self.assertEqual(reply['id'],3)
+        self.assertLess(len(json.dumps(reply)),server.MAX_FRAME)
+        self.assertEqual(len(reply['diagnostics']['events']),24)
+        self.assertNotIn(secret,json.dumps(reply))
+        self.assertNotIn(self.last_device['token'],json.dumps(reply))
+        self.assertNotIn(self.state.pin,json.dumps(reply))
+        server.send(connection,{'op':'status','id':4})
+        self.assertTrue(server.receive(connection)['ok'])
+
     def test_tls_pair_actions_and_status(self):
         connection=self.pair()
         actions=[{'type':'move','dx':12,'dy':-7},{'type':'click','button':'left'},

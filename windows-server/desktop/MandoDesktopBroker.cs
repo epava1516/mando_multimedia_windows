@@ -25,6 +25,10 @@ internal sealed class MandoDesktopBroker : ServiceBase {
     Process worker;
     uint workerSession;
     string allowedSid;
+    string currentStage="NONE",lastStage="NONE";
+    int lastWin32;
+    void Stage(string value) { currentStage=value; }
+    void CaptureFailure(Exception error) { lastStage=currentStage;var native=error as System.ComponentModel.Win32Exception;lastWin32=native==null?0:Math.Max(0,native.NativeErrorCode); }
     readonly object workerGate=new object();
 
     [StructLayout(LayoutKind.Sequential)] struct SA { public int length; public IntPtr descriptor; public int inherit; }
@@ -176,8 +180,9 @@ internal sealed class MandoDesktopBroker : ServiceBase {
     }
     static void Execute(INPUT[] events) {
         if(SendInput((uint)events.Length,events,Marshal.SizeOf(typeof(INPUT)))!=(uint)events.Length) {
+            int error=Marshal.GetLastWin32Error();
             INPUT[] release={Key(17,true,0),Key(18,true,0),Key(16,true,0),Key(91,true,0),Mouse(0x14,0,0,0)};
-            SendInput((uint)release.Length,release,Marshal.SizeOf(typeof(INPUT)));throw new IOException("Input rejected");
+            SendInput((uint)release.Length,release,Marshal.SizeOf(typeof(INPUT)));throw new System.ComponentModel.Win32Exception(error);
         }
     }
     void StopWorker() {
@@ -194,20 +199,26 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         IntPtr original=IntPtr.Zero,token=IntPtr.Zero;
         PROCESSINFO process=new PROCESSINFO();
         try {
-            if(!OpenProcessToken(GetCurrentProcess(),42,out original))throw new IOException("Cannot open own service token");
+            Stage("TOKEN_OPEN");
+            if(!OpenProcessToken(GetCurrentProcess(),42,out original))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            Stage("TOKEN_PRIVILEGE");
             LUID tcb;if(!LookupPrivilegeValue(null,"SeTcbPrivilege",out tcb))throw new IOException();
             PRIVILEGE privilege=new PRIVILEGE{count=1,luid=tcb,attributes=2};
-            if(!AdjustTokenPrivileges(original,false,ref privilege,0,IntPtr.Zero,IntPtr.Zero)||Marshal.GetLastWin32Error()!=0)throw new IOException("Session privilege unavailable");
+            if(!AdjustTokenPrivileges(original,false,ref privilege,0,IntPtr.Zero,IntPtr.Zero)||Marshal.GetLastWin32Error()!=0)throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            Stage("TOKEN_DUPLICATE");
             if(!DuplicateTokenEx(original,0xF01FF,IntPtr.Zero,2,1,out token)||
-                    !SetTokenInformation(token,12,ref session,4))throw new IOException("Cannot create desktop token");
+                    !SetTokenInformation(token,12,ref session,4))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             string executable=Path.Combine(Root,"MandoDesktopBroker.exe");
             STARTUPINFO startup=new STARTUPINFO{cb=(uint)Marshal.SizeOf(typeof(STARTUPINFO)),desktop="WinSta0\\Winlogon"};
             StringBuilder command=new StringBuilder("\""+executable+"\" --worker "+nonce);
-            if(!CreateProcessAsUser(token,executable,command,IntPtr.Zero,IntPtr.Zero,false,0x08000000,IntPtr.Zero,Root,ref startup,out process))throw new IOException("Cannot start desktop worker");
+            Stage("WORKER_START");
+            if(!CreateProcessAsUser(token,executable,command,IntPtr.Zero,IntPtr.Zero,false,0x08000000,IntPtr.Zero,Root,ref startup,out process))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             worker=Process.GetProcessById((int)process.pid);workerSession=session;
+            Stage("WORKER_CONNECT");
             Connected(workerPipe,5000);uint peer;
+            Stage("WORKER_IDENTITY");
             if(!GetNamedPipeClientProcessId(workerPipe.SafePipeHandle,out peer)||peer!=process.pid)throw new IOException("Wrong worker identity");
-        } catch {StopWorker();throw;}
+        } catch(Exception error) {CaptureFailure(error);StopWorker();throw;}
         finally{if(process.process!=IntPtr.Zero)CloseHandle(process.process);if(process.thread!=IntPtr.Zero)CloseHandle(process.thread);if(token!=IntPtr.Zero)CloseHandle(token);if(original!=IntPtr.Zero)CloseHandle(original);}
         }
     }
@@ -230,17 +241,28 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                         uint session=WTSGetActiveConsoleSessionId();
                         if(session==UInt32.MaxValue||!Authorized(pipe,session))throw new IOException("Wrong client");
                         while(!stopping&&pipe.IsConnected) {
+                            Stage("REQUEST");
                             Dictionary<string,object> request=Read(pipe,30000);session=WTSGetActiveConsoleSessionId();
                             if(session==UInt32.MaxValue||!Authorized(pipe,session))throw new IOException("Session changed");
-                            if(Text(request,"op")=="status") {Write(pipe,new{ok=true,available=true,locked=Locked(session),protocol=1});continue;}
+                            if(Text(request,"op")=="status") {
+                                bool running=worker!=null&&!worker.HasExited;
+                                Write(pipe,new{ok=true,available=true,locked=Locked(session),protocol=1,
+                                    worker_running=running,worker_verified=running&&workerPipe!=null&&workerPipe.IsConnected,
+                                    last_stage=lastStage,last_win32=lastWin32});continue;
+                            }
                             object raw;Dictionary<string,object> action;
                             if(Text(request,"op")!="input"||!request.TryGetValue("action",out raw)||(action=raw as Dictionary<string,object>)==null)throw new IOException();
                             BuildEvents(action); // Validate before creating any privileged worker.
-                            if(!Locked(session)) {Write(pipe,new{ok=false});continue;}
-                            EnsureWorker(session);Write(workerPipe,action);Dictionary<string,object> response=Read(workerPipe,3000);
+                            if(!Locked(session)) {lastStage="SESSION_LOCK";lastWin32=0;Write(pipe,new{ok=false});continue;}
+                            EnsureWorker(session);Stage("WORKER_REPLY");Write(workerPipe,action);Dictionary<string,object> response=Read(workerPipe,3000);
+                            if(!Object.Equals(response.ContainsKey("ok")?response["ok"]:null,true)) {
+                                object stageValue,codeValue;
+                                lastStage=response.TryGetValue("stage",out stageValue)&&Object.Equals(stageValue,"SEND_INPUT")?"SEND_INPUT":"INPUT_DESKTOP";
+                                lastWin32=response.TryGetValue("win32",out codeValue)&&codeValue is int?Math.Max(0,(int)codeValue):0;
+                            }
                             Write(pipe,new{ok=response.ContainsKey("ok")&&Object.Equals(response["ok"],true)});
                         }
-                    } catch {StopWorker();}
+                    } catch(Exception error) {if(currentStage!="REQUEST")CaptureFailure(error);StopWorker();}
                     finally {if(!stopping&&pipe.IsConnected)pipe.Disconnect();}
                 }
             }
@@ -259,14 +281,14 @@ internal sealed class MandoDesktopBroker : ServiceBase {
             pipe.Connect(5000);
             while(true) {
                 Dictionary<string,object> action=Read(pipe,30000);
-                bool ok=false;
+                bool ok=false;int code=0;string stage="INPUT_DESKTOP";
                 try {
                     uint session=(uint)Process.GetCurrentProcess().SessionId;
                     if(session==WTSGetActiveConsoleSessionId()&&Locked(session)&&String.Equals(InputDesktop(),"Winlogon",StringComparison.OrdinalIgnoreCase)) {
-                        Execute(BuildEvents(action));ok=true;
+                        stage="SEND_INPUT";Execute(BuildEvents(action));ok=true;
                     }
-                } catch {}
-                Write(pipe,new{ok=ok});
+                } catch(Exception error) {var native=error as System.ComponentModel.Win32Exception;code=native==null?0:Math.Max(0,native.NativeErrorCode);}
+                Write(pipe,new{ok=ok,stage=stage,win32=code});
             }
         }
     }

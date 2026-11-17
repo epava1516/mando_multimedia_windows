@@ -61,6 +61,7 @@ public final class MainActivity extends Activity {
     private volatile boolean resuming;
     private volatile boolean imeVisible;
     private boolean zoomSetupShowing;
+    private AlertDialog diagnosticDialog;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -238,6 +239,59 @@ public final class MainActivity extends Activity {
         }
         scroll.addView(strip);keyboardRow.addView(scroll,new LinearLayout.LayoutParams(-1,dp(52)));
         resetImeModifiers();
+    }
+
+    private void showServerDiagnostics() {
+        if(!foreground || !ownClient.isConnected()) {
+            Toast.makeText(this,"Conecta primero con el PC",Toast.LENGTH_SHORT).show();return;
+        }
+        if(diagnosticDialog!=null && diagnosticDialog.isShowing())return;
+        android.widget.TextView text=new android.widget.TextView(this);
+        text.setTextColor(0xfff0f2f9);text.setTextSize(14);text.setTextIsSelectable(true);
+        text.setPadding(dp(20),dp(16),dp(20),dp(16));
+        android.widget.ScrollView scroll=new android.widget.ScrollView(this);
+        scroll.setBackgroundColor(0xff1a1e29);scroll.addView(text);
+        final AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Diagnóstico del servidor")
+            .setView(scroll).setPositiveButton("Actualizar",null).setNeutralButton("Copiar",null)
+            .setNegativeButton("Cerrar",null).create();
+        diagnosticDialog=dialog;
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(false);
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
+                ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(
+                    ClipData.newPlainText("Diagnóstico de Mando",text.getText()));
+                Toast.makeText(this,"Diagnóstico copiado",Toast.LENGTH_SHORT).show();
+            });
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> refreshDiagnostics(dialog,text));
+            refreshDiagnostics(dialog,text);
+        });
+        dialog.show();
+    }
+    private void refreshDiagnostics(AlertDialog dialog,android.widget.TextView text) {
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(false);
+        text.setText("Consultando el servidor…");
+        final long stamp=resume.generation();
+        try {worker.execute(() -> {
+            String report;boolean valid=false;
+            try {
+                if(!foreground || !resume.current(stamp))throw new IOException("Vuelve a abrir el diagnóstico");
+                report=DiagnosticText.format(ownClient.diagnostics());valid=true;
+            } catch(Exception error) {
+                report=ownClient.isConnected()?"Actualiza Mando Server a alpha.13 o posterior o vuelve a conectar.":
+                    "No se pudo consultar el servidor. Comprueba la conexión con el PC.";
+            }
+            final String output=report;final boolean copy=valid;
+            runOnUiThread(() -> {
+                if(destroyed || !foreground || !dialog.isShowing() || !resume.current(stamp))return;
+                text.setText(output);text.announceForAccessibility(copy?"Diagnóstico actualizado":"No se pudo consultar el diagnóstico");
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(copy);
+            });
+        });} catch(java.util.concurrent.RejectedExecutionException busy) {
+            text.setText("Espera un momento y pulsa Actualizar.");
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+        }
     }
 
     private void showClipboard() {
@@ -418,7 +472,10 @@ public final class MainActivity extends Activity {
                         JSONObject data = request.optJSONObject("data");
                         boolean input="/api/action".equals(path)||"/api/lock".equals(path)||"/api/keyboard".equals(path)||"/api/ir/send".equals(path);
                         if(input && (!foreground||!resume.current(stamp)||(duringRecovery&&!"/api/ir/send".equals(path))))result.put("expired",true);
-                        else if ("/api/ir/status".equals(path)) {
+                        else if ("/api/server-diagnostics".equals(path)) {
+                            runOnUiThread(() -> {if(foreground&&!destroyed)showServerDiagnostics();});
+                            result.put("ok",true);
+                        } else if ("/api/ir/status".equals(path)) {
                             result.put("available", infrared.isAvailable());
                             result.put("profile", "LGTV1");
                         } else if ("/api/ir/send".equals(path)) {
@@ -640,6 +697,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onStop() {
         foreground=false;
+        if(diagnosticDialog!=null)diagnosticDialog.dismiss();
         synchronized(resumeStoreLock){resume.pause(android.os.SystemClock.elapsedRealtime(),client.isConnected());saveResumeCheckpoint();}
         resuming=false;
         super.onStop();editor.discard();resetImeModifiers();showKeyboard(false);

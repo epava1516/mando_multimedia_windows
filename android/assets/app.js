@@ -541,3 +541,5 @@ api('/api/status').then(result => {
   window.mandoImeChanged(result.imeVisible || false);
   if (result.dryRun) status('SIMULACIÓN: puedes probar la interfaz; no se controla ningún ordenador.');
 }).catch(error => {if(!suspended){setPaired(false);status(error.message,true);}});
+
+$('server-diagnostics').addEventListener('click',()=>api('/api/server-diagnostics',{}).catch(error=>status(error.message,true)));
