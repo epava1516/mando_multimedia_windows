@@ -40,6 +40,8 @@ Source: "{#PayloadDir}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignorevers
 [Icons]
 Name: "{commonprograms}\Mando\Mando Server"; Filename: "{app}\MandoTray.exe"; WorkingDir: "{app}"
 Name: "{commonprograms}\Mando\Instrucciones"; Filename: "{app}\LEEME.txt"
+[Run]
+Filename: "{app}\MandoTray.exe"; WorkingDir: "{app}"; Description: "Abrir Mando Server"; Flags: postinstall nowait runasoriginaluser skipifsilent
 [Code]
 function Configure(Mode: String): Boolean;
 var
@@ -68,5 +70,5 @@ begin
 end;
 procedure InitializeWizard();
 begin
-  WizardForm.FinishedLabel.Caption := 'Mando esta instalado. Abre Mando Server desde Inicio. Detecta la IP automaticamente, permanece en la bandeja y arrancara al iniciar tu sesion de Windows. Cierra Remote Mouse antes de conectar. En Android pulsa Escanear QR del PC y luego Conectar. El PC quedara recordado.';
+  WizardForm.FinishedLabel.Caption := 'Mando esta instalado. Al pulsar Finalizar se abrira Mando Server si mantienes marcada la casilla. Detecta la IP y permanece en la bandeja. Si ejecutaste el instalador como administrador desde una consola elevada, abre Mando Server desde Inicio con tu cuenta normal. En Android el PC queda recordado.';
 end;

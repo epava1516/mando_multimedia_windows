@@ -168,3 +168,5 @@ Primera publicación estable, confirmada por el usuario.
 - Diagnóstico avanzado con comparación local de cuenta/sesión, estado y cuenta clasificada del servicio, PID y fases IPC.
 - Conserva códigos nativos y separa timeout/EOF/rechazo de identidad; sondeo nuevo limitado a2 segundos sin entrada ni arranque del worker.
 - Sin CMD, parámetros de ejecución, acceso a archivos seleccionables, nombres de cuenta o SID exportados. No cambia la política de UAC ni amplía privilegios.
+
+- El instalador abre Mando Server al finalizar por defecto con la identidad original previa a UAC (casilla desmarcable). La instalación silenciosa no abre ventanas. La bandeja continúa rechazando la ejecución elevada.
