@@ -139,3 +139,8 @@ Primera publicación estable, confirmada por el usuario.
 - Retroceder/avanzar requieren seleccionar primero el reproductor del navegador.
 - No incluye arrastre mantenido ni duplicación de pantalla.
 - Cierra el transporte al abandonar la app; recupera la conexión al volver durante 20 minutos desde alpha.3.
+
+## 0.5.0-alpha.21
+
+- Evita NetworkOnMainThreadException al cerrar TLS desde onStop/onDestroy: invalida la conexión inmediatamente y cierra el socket fuera del hilo de interfaz.
+- Regresión JVM: cierre asíncrono, no bloqueante, tolera IOException y socket nulo. Compilación y firma verificadas. Tres ciclos de Inicio/reapertura por ADB sin nuevo cierre; pendiente prueba completa con conexión TLS activa al PC.

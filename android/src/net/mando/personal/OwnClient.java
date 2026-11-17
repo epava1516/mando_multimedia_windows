@@ -25,7 +25,7 @@ final class OwnClient implements InputClient {
     public boolean isConnected() {Socket current=socket;return ready && current!=null && !current.isClosed();}
     public void close() {
         ready=false;Socket previous=socket;socket=null;
-        if(previous!=null)try{previous.close();}catch(IOException ignored){ }
+        SocketCloser.close(previous);
     }
     boolean supportsClipboard(){return capabilities.optBoolean("clipboard_text",false);}
     String clipboard(String text)throws Exception {
