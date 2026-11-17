@@ -30,6 +30,7 @@ Name: english; MessagesFile: compiler:Default.isl
 [Files]
 Source: "{#PayloadDir}\MandoServer.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\MandoTray.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PayloadDir}\MandoUpdater.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\Instalar-MandoCompleto.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\Desinstalar-MandoCompleto.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\Configure-Mando.ps1"; DestDir: "{app}"; Flags: ignoreversion

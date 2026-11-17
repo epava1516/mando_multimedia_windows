@@ -22,7 +22,7 @@ internal sealed class MandoTray : Form {
     readonly Label status=new Label();
     readonly TextBox code=new TextBox();
     readonly PictureBox qr=new PictureBox();
-    readonly Button refresh=new Button(),copy=new Button(),restart=new Button(),diagnostics=new Button();
+    readonly Button refresh=new Button(),copy=new Button(),restart=new Button(),diagnostics=new Button(),update=new Button();
     string desktopStatus="";
     readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();
     readonly bool smoke,background;
@@ -71,8 +71,8 @@ internal sealed class MandoTray : Form {
         code.AccessibleName="Código de emparejamiento del PC";layout.Controls.Add(code);
         var buttons=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};
         copy.Text="Copiar código";refresh.Text="Nuevo código";restart.Text="Reiniciar";
-        diagnostics.Text="Diagnóstico";
-        foreach(var b in new[]{copy,refresh,restart,diagnostics}){b.AutoSize=true;b.MinimumSize=new Size(110,36);buttons.Controls.Add(b);}
+        diagnostics.Text="Diagnóstico";update.Text="Buscar actualización";
+        foreach(var b in new[]{copy,refresh,restart,diagnostics,update}){b.AutoSize=true;b.MinimumSize=new Size(110,36);buttons.Controls.Add(b);}
         layout.Controls.Add(buttons);
         layout.Controls.Add(new Label{AutoSize=true,MaximumSize=new Size(490,0),Text="En Android: Escanear QR del PC → Conectar. El PC queda recordado; si cambia su IP, Buscar en Wi-Fi permite recuperarlo."});
         Controls.Add(layout);
@@ -80,10 +80,11 @@ internal sealed class MandoTray : Form {
         menu.Items.Add("Abrir Mando",null,(s,e)=>ShowWindow());
         menu.Items.Add("Copiar código",null,(s,e)=>CopyCode());
         menu.Items.Add("Nuevo código",null,(s,e)=>Send("R"));
+        menu.Items.Add("Buscar actualización",null,(s,e)=>CheckUpdate());
         menu.Items.Add(new ToolStripSeparator());menu.Items.Add("Salir",null,(s,e)=>ExitServer());
         tray.Text="Mando Server";tray.Icon=Icon;tray.ContextMenuStrip=menu;tray.Visible=true;
         tray.DoubleClick+=(s,e)=>ShowWindow();
-        copy.Click+=(s,e)=>CopyCode();refresh.Click+=(s,e)=>Send("R");restart.Click+=(s,e)=>StartServer();diagnostics.Click+=(s,e)=>ShowDiagnostics();
+        copy.Click+=(s,e)=>CopyCode();refresh.Click+=(s,e)=>Send("R");restart.Click+=(s,e)=>StartServer();diagnostics.Click+=(s,e)=>ShowDiagnostics();update.Click+=(s,e)=>CheckUpdate();
         FormClosing+=(s,e)=>{if(e.CloseReason==CloseReason.UserClosing&&!exiting){e.Cancel=true;Hide();}};
         FormClosed+=(s,e)=>{timer.Stop();StopServer();ClearQr();tray.Visible=false;tray.Dispose();timer.Dispose();};
         Shown+=(s,e)=>{
@@ -165,6 +166,13 @@ internal sealed class MandoTray : Form {
     void CopyCode() {
         if(!ready||DateTime.UtcNow>=codeUntil){SetStatus("El código ha caducado. Pulsa Nuevo código para emparejar.");return;}
         try {Clipboard.SetText(code.Text);}catch(System.Runtime.InteropServices.ExternalException){SetStatus("El portapapeles está ocupado. Inténtalo de nuevo.");}
+    }
+    void CheckUpdate() {
+        if(smoke)return;
+        string updater=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"MandoUpdater.exe");
+        if(!File.Exists(updater)){MessageBox.Show("Instala Mando Server alpha.14 o posterior para usar el actualizador integrado.","Actualizar Mando");return;}
+        try {Process.Start(new ProcessStartInfo(updater){UseShellExecute=false,WorkingDirectory=AppDomain.CurrentDomain.BaseDirectory});}
+        catch {MessageBox.Show("No se pudo abrir el actualizador. Mando sigue en ejecución.","Actualizar Mando");}
     }
     void StopServer() {
         var previous=child;child=null;ready=false;

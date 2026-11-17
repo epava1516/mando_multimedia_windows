@@ -62,6 +62,9 @@ jobs:
           python -m PyInstaller --clean --noconfirm --onefile --name MandoServer windows-server/server.py
           if ($LASTEXITCODE -ne 0) { throw 'Standalone server build failed' }
           Add-Type -TypeDefinition (Get-Content windows-server/desktop/MandoTray.cs -Raw -Encoding UTF8) -Language CSharp -ReferencedAssemblies 'System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.ServiceProcess.dll' -OutputAssembly "$pwd/dist/MandoTray.exe" -OutputType WindowsApplication
+          Add-Type -TypeDefinition (Get-Content windows-server/desktop/MandoUpdater.cs -Raw -Encoding UTF8) -Language CSharp -ReferencedAssemblies 'System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Web.Extensions.dll','System.Security.dll' -OutputAssembly "$pwd/dist/MandoUpdater.exe" -OutputType WindowsApplication
+          $updater = Start-Process -FilePath "$pwd/dist/MandoUpdater.exe" -ArgumentList '--self-test' -Wait -PassThru
+          if ($updater.ExitCode -ne 0) { throw 'Updater signed manifest/hash/tamper self-test failed' }
           $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--self-test' -Wait -PassThru
           if ($tray.ExitCode -ne 0) { throw 'Tray self-test failed' }
           $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--smoke-test' -Wait -PassThru
@@ -84,7 +87,7 @@ jobs:
           if ($tool.ExitCode -ne 0) { throw 'Compiler setup failed' }
           $payload = Join-Path $pwd 'build/installer-payload'
           New-Item -ItemType Directory -Force -Path "$payload/desktop","$payload/windows-zoom" | Out-Null
-          Copy-Item dist/MandoServer.exe,dist/MandoTray.exe,windows-server/Instalar-MandoCompleto.ps1,windows-server/Desinstalar-MandoCompleto.ps1,windows-server/installer/Configure-Mando.ps1,windows-server/installer/LEEME.txt $payload
+          Copy-Item dist/MandoServer.exe,dist/MandoTray.exe,dist/MandoUpdater.exe,windows-server/Instalar-MandoCompleto.ps1,windows-server/Desinstalar-MandoCompleto.ps1,windows-server/installer/Configure-Mando.ps1,windows-server/installer/LEEME.txt $payload
           Copy-Item windows-server/desktop/MandoDesktopBroker.cs "$payload/desktop/"
           Copy-Item windows-zoom/MandoTouchZoom.cs "$payload/windows-zoom/"
           python windows-server/installer/package_licenses.py "$payload/licenses"
@@ -113,6 +116,7 @@ jobs:
           path: |
             dist/MandoServer.exe
             dist/MandoTray.exe
+            dist/MandoUpdater.exe
             dist/MandoSetup-0.5.0-alpha.14.exe
             build/MandoDesktopBroker.exe
             build/MandoTouchZoom.exe
