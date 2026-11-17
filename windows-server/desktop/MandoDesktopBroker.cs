@@ -232,6 +232,15 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         catch {return "CLIENT_IDENTITY";}
         return sid==allowedSid?null:"CLIENT_ACCOUNT_MISMATCH";
     }
+    static void Deny(NamedPipeServerStream pipe,string reason,bool requestRead) {
+        // Consume only a bounded frame, never execute it. Keep the denial readable
+        // until the normal client closes, rather than discarding it at Disconnect.
+        try {
+            if(!requestRead)Read(pipe,2000);
+            Write(pipe,new{ok=false,reason=reason});
+            try {Read(pipe,500);}catch { }
+        } catch { }
+    }
     void Serve() {
         try {
             using(NamedPipeServerStream pipe=NewPipe(PublicPipe,allowedSid)) {
@@ -245,12 +254,12 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                         }
                         uint session=WTSGetActiveConsoleSessionId();
                         string rejected=AuthorizationFailure(pipe,session);
-                        if(rejected!=null){Write(pipe,new{ok=false,reason=rejected});continue;}
+                        if(rejected!=null){Deny(pipe,rejected,false);continue;}
                         while(!stopping&&pipe.IsConnected) {
                             Stage("REQUEST");
                             Dictionary<string,object> request=Read(pipe,30000);session=WTSGetActiveConsoleSessionId();
                             rejected=AuthorizationFailure(pipe,session);
-                            if(rejected!=null){Write(pipe,new{ok=false,reason=rejected});break;}
+                            if(rejected!=null){Deny(pipe,rejected,true);break;}
                             if(Text(request,"op")=="status") {
                                 bool running=worker!=null&&!worker.HasExited;
                                 Write(pipe,new{ok=true,available=true,locked=Locked(session),protocol=1,
