@@ -107,3 +107,9 @@ La autorización queda en Keystore. Para el mismo PC con otra IP, Buscar en Wi-F
 ## Servidor único (alpha.13)
 
 La app utiliza siempre Mando Server. Se ha retirado el selector y la búsqueda del oficial; los vínculos guardados, QR, ajustes y recuperación se conservan.
+
+## Multimedia en notificaciones (alpha.22)
+
+Al conceder permiso de notificaciones, la conexión a Mando Server se conserva al salir de la pantalla de la app. La notificación muestra anterior, play/pausa y siguiente; al expandirla, bajar y subir volumen del PC. Tocar la notificación abre Mando. Ajustes → Desconectar termina la sesión y retira la notificación. Sin permiso se conserva el comportamiento anterior de recuperación durante20 minutos.
+
+Servicio privado de tipo connectedDevice, iniciado desde la app visible al conectar/recuperar; sin arranque al reiniciar Android ni reconexión automática del servicio tras muerte del proceso. Un heartbeat cada10 segundos detecta pérdida de conexión y retira la notificación. No obtiene título, progreso ni estado real del reproductor del PC: el botón es siempre Play/pausa. La notificación no contiene IP, credenciales ni texto del portapapeles. Solo acepta cinco acciones multimedia cerradas. Órdenes caducadas o fallidas se descartan sin reintentar. La cola de red se comparte con la interfaz para preservar secuencias.

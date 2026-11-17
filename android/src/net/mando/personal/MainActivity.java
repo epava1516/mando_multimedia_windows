@@ -49,10 +49,9 @@ public final class MainActivity extends Activity {
     private final LinkedHashSet<String> imeModifiers=new LinkedHashSet<>();
     private final Map<String,Button> imeModifierButtons=new LinkedHashMap<>();
     private final RemoteClient discoveryClient = new RemoteClient();
-    private final OwnClient ownClient = new OwnClient();
+    private final OwnClient ownClient = MediaControlService.CLIENT;
     private final InputClient client = ownClient;
-    private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<Runnable>(32));
+    private final ThreadPoolExecutor worker = MediaControlService.IO;
     private volatile boolean destroyed;
     private volatile boolean foreground;
     private InfraredController infrared;
@@ -65,6 +64,11 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED
+                && !getPreferences(MODE_PRIVATE).getBoolean("notificationAsked",false)) {
+            getPreferences(MODE_PRIVATE).edit().putBoolean("notificationAsked",true).apply();
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},4108);
+        }
         infrared = new InfraredController(this);
         deviceStore = new DeviceStore(this);
         restoreResumeCheckpoint();
@@ -153,6 +157,10 @@ public final class MainActivity extends Activity {
         web.loadUrl(LOCAL);
     }
 
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results) {
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request==4108 && foreground && ownClient.isConnected())MediaControlService.attach(this);
+    }
     @Override protected void onResume(){super.onResume();deliverQr();}
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
@@ -499,6 +507,7 @@ public final class MainActivity extends Activity {
                                 ownClient.close();throw new IOException("Conexión cancelada");
                             }
                             getPreferences(MODE_PRIVATE).edit().putString("lastServerMode",mode).apply();
+                            runOnUiThread(() -> {if(foreground)MediaControlService.attach(MainActivity.this);});
                             result.put("ok", true).put("mode","own");
                             result.put("version", "Mando v1 TLS");
                             result.put("directLock",true).put("dryRun",ownClient.isDryRun());
@@ -510,7 +519,7 @@ public final class MainActivity extends Activity {
                             Network network=wifi();
                             result.put("servers",discoveryClient.scan(network,manager.getLinkProperties(network)));
                         } else if ("/api/logout".equals(path)) {
-                            client.close(); result.put("ok", true);
+                            client.close(); MediaControlService.detach(MainActivity.this); result.put("ok", true);
                         } else if ("/api/action".equals(path)) {
                             if (data == null) throw new IOException("Falta la acción");
                             if("scroll_horizontal".equals(data.optString("type"))&&client==ownClient&&!ownClient.supportsHorizontalScroll()) {
@@ -589,6 +598,7 @@ public final class MainActivity extends Activity {
             }
             if(!resume.connected(ticket.generation,ticket.target)){ownClient.close();return;}
             resuming=false;
+            runOnUiThread(() -> {if(foreground)MediaControlService.attach(MainActivity.this);});
             publishSession(sessionState().put("recovered",true),ticket.generation);
         } catch(Exception error) {
             ownClient.close();
@@ -609,6 +619,13 @@ public final class MainActivity extends Activity {
 
     @Override protected void onStart() {
         super.onStart();foreground=true;
+        if(MediaControlService.holdsConnection()) {
+            resume.start(android.os.SystemClock.elapsedRealtime());
+            resume.connected(resume.generation(),new ResumeWindow.Target("own",""));
+            resuming=false;
+            try{publishSession(sessionState());}catch(Exception ignored){}
+            return;
+        }
         ResumeWindow.Ticket ticket=resume.start(android.os.SystemClock.elapsedRealtime());
         resuming=ticket!=null;
         if(ticket!=null) {
@@ -626,13 +643,13 @@ public final class MainActivity extends Activity {
         synchronized(resumeStoreLock){resume.pause(android.os.SystemClock.elapsedRealtime(),client.isConnected());saveResumeCheckpoint();}
         resuming=false;
         super.onStop();editor.discard();resetImeModifiers();showKeyboard(false);
-        ownClient.close();
+        if(!MediaControlService.holdsConnection())ownClient.close();
         if(web!=null)web.evaluateJavascript("window.mandoSuspended && window.mandoSuspended()",null);
     }
 
     @Override protected void onDestroy() {
         destroyed = true;resume.clear();
-        ownClient.close(); worker.shutdownNow();
+        if(!MediaControlService.holdsConnection())ownClient.close();
         if (web != null) { web.removeJavascriptInterface("MandoNative"); web.destroy(); }
         super.onDestroy();
     }

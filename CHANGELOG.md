@@ -144,3 +144,9 @@ Primera publicación estable, confirmada por el usuario.
 
 - Evita NetworkOnMainThreadException al cerrar TLS desde onStop/onDestroy: invalida la conexión inmediatamente y cierra el socket fuera del hilo de interfaz.
 - Regresión JVM: cierre asíncrono, no bloqueante, tolera IOException y socket nulo. Compilación y firma verificadas. Tres ciclos de Inicio/reapertura por ADB sin nuevo cierre; pendiente prueba completa con conexión TLS activa al PC.
+
+## 0.5.0-alpha.22
+
+- Controles multimedia en notificación conectada: anterior, play/pausa, siguiente y volumen al expandir.
+- Servicio connectedDevice conserva el enlace al salir si las notificaciones están permitidas; heartbeat y desconexión retiran el control cuando termina el enlace.
+- Cola de red compartida, intents privados e inmutables y conjunto cerrado de teclas; sin reintentos automáticos de órdenes.
