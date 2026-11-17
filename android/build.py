@@ -1,5 +1,8 @@
 """Build using caller-supplied Android SDK/JDK; vendored verified ZXing; no Gradle."""
 import os
+import argparse
+import json
+import shutil
 import hashlib
 from pathlib import Path
 import secrets
@@ -7,6 +10,16 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
+parser = argparse.ArgumentParser()
+parser.add_argument('--variant', choices=('personal', 'public'), default='personal')
+args = parser.parse_args()
+variant = args.variant
+config = json.loads((ROOT.parent/'monetization/config.json').read_text())
+if config['admob']['enabled']:
+    raise SystemExit('AdMob remains disabled: SDK and consent adapter are not integrated yet.')
+if config['play_billing']['enabled']:
+    raise SystemExit('Play Billing remains disabled: billing, verification and restore adapters are pending.')
+output = ROOT / ('mando-personal.apk' if variant == 'personal' else 'mando-public.apk')
 sdk_override = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
 sdk_candidates = [Path.home() / 'Android' / 'Sdk', Path.home() / '.cache' / 'recarga-android-sdk']
 SDK = Path(sdk_override).expanduser() if sdk_override else next(
@@ -16,17 +29,33 @@ PLATFORM = SDK / 'platforms' / 'android-36' / 'android.jar'
 ZXING = ROOT / 'vendor' / 'zxing-core-3.5.3.jar'
 if hashlib.sha256(ZXING.read_bytes()).hexdigest() != '8d8064c1636fdaef7189dd9055c7d59950a8940a12f2293956446ec3c109fd82':
     raise RuntimeError('ZXing digest mismatch')
-BUILD = ROOT / 'build'
+BUILD = ROOT / 'build' / variant
+# Never reuse classes from the other variant or previous generated sources.
+for folder in ('generated', 'classes', 'dex'):
+    shutil.rmtree(BUILD/folder, ignore_errors=True)
 for name in ['generated', 'classes', 'dex']:
     (BUILD/name).mkdir(parents=True, exist_ok=True)
 
 def run(*args, env=None):
     subprocess.run([str(a) for a in args], check=True, env=env, cwd=ROOT)
 
-run(TOOLS/'aapt2', 'compile', '--dir', ROOT/'res', '-o', BUILD/'compiled.zip')
+manifest = BUILD/'AndroidManifest.xml'
+manifest_text = (ROOT/'AndroidManifest.xml').read_text()
+if variant == 'public':
+    manifest_text = manifest_text.replace('package="net.mando.personal"', 'package="net.mando.publicapp"')
+    manifest_text = manifest_text.replace('android:name=".QrScanner"', 'android:name="net.mando.personal.QrScanner"')
+    manifest_text = manifest_text.replace('android:name=".MainActivity"', 'android:name="net.mando.personal.MainActivity"')
+    manifest_text = manifest_text.replace('android:label="Mando"', 'android:label="Mando Pública"')
+manifest.write_text(manifest_text)
+variant_source = BUILD/'generated/net/mando/personal/Edition.java'
+variant_source.parent.mkdir(parents=True, exist_ok=True)
+variant_source.write_text('package net.mando.personal; final class Edition { static final boolean PERSONAL = '
+    + ('true' if variant == 'personal' else 'false') + '; static final boolean ADS_ENABLED = false; }')
+
+run(TOOLS/'aapt2', 'compile' , '--dir', ROOT/'res', '-o', BUILD/'compiled.zip')
 run(TOOLS/'aapt2', 'link', '-o', BUILD/'resources.apk', '-I', PLATFORM,
-    '--manifest', ROOT/'AndroidManifest.xml', '--min-sdk-version', '28', '--target-sdk-version', '35',
-    '--version-code', '24', '--version-name', '0.5.0-alpha.14', '--java', BUILD/'generated',
+    '--manifest', manifest, '--min-sdk-version', '28', '--target-sdk-version', '35',
+    '--version-code', '30', '--version-name', '0.5.0-alpha.20', '--java', BUILD/'generated',
     '-A', ROOT/'assets', BUILD/'compiled.zip')
 sources = sorted((ROOT/'src').rglob('*.java')) + sorted((BUILD/'generated').rglob('*.java'))
 run('javac', '-encoding', 'UTF-8', '--release', '8', '-classpath', str(PLATFORM)+os.pathsep+str(ZXING),
@@ -51,6 +80,6 @@ if not keystore.exists():
         '-validity', '3650', '-dname', 'CN=Mando Personal', env=env)
     keystore.chmod(0o600)
 run(TOOLS/'apksigner', 'sign', '--ks', keystore, '--ks-key-alias', 'mando',
-    '--ks-pass', 'env:MANDO_SIGNING_PASSWORD', '--out', ROOT/'mando-personal.apk', BUILD/'aligned.apk', env=env)
-run(TOOLS/'apksigner', 'verify', '--verbose', ROOT/'mando-personal.apk')
-print('APK:', ROOT/'mando-personal.apk')
+    '--ks-pass', 'env:MANDO_SIGNING_PASSWORD', '--out', output, BUILD/'aligned.apk', env=env)
+run(TOOLS/'apksigner', 'verify', '--verbose', output)
+print('APK:', output, 'variant:', variant, 'advertising: disabled')

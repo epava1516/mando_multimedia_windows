@@ -1,0 +1,19 @@
+{
+  "adsense": {
+    "enabled": false,
+    "publisher_id": "",
+    "slot_id": ""
+  },
+  "admob": {
+    "enabled": false,
+    "app_id": "",
+    "banner_unit_id": ""
+  },
+  "play_billing": {
+    "enabled": false,
+    "product_id": "mando_remove_ads",
+    "product_type": "non_consumable",
+    "price_source": "google_play",
+    "verification_endpoint": ""
+  }
+}

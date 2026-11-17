@@ -1,5 +1,8 @@
 services:
   mando-downloads:
+    pids_limit: 512
+    memswap_limit: 805306368
+    mem_limit: 536870912
     image: ${DOWNLOAD_IMAGE}
     container_name: mando-downloads
     restart: unless-stopped

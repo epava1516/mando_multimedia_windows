@@ -57,3 +57,14 @@ web-downloads/.env
 web-downloads/public/*.apk
 web-downloads/public/*.zip
 web-downloads/public/*.exe
+
+# Public landing sources; release binaries and local environment stay outside Git.
+!/web/
+web/.env
+web/public/downloads/*.apk
+web/public/downloads/*.exe
+# Existing local browser prototype is separate from the published landing.
+web/app.js
+web/index.html
+web/style.css
+!/monetization/

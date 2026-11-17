@@ -2,7 +2,7 @@ name: Windows components
 on:
   workflow_dispatch:
   push:
-    branches: [codex/own-windows-server]
+    branches: [main, codex/own-windows-server]
     paths: [windows-server/**, windows-zoom/**, .github/workflows/windows-validation.yml]
 permissions:
   contents: read

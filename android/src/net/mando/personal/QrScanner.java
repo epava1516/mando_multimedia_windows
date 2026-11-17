@@ -33,8 +33,8 @@ public final class QrScanner extends Activity implements SurfaceHolder.Callback 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(16,16,16,16);root.setBackgroundColor(0xff102323);
-        hint=new TextView(this);hint.setText("Apunta al QR de Mando Server en tu PC");hint.setTextColor(0xffeff7f2);hint.setTextSize(18);hint.setPadding(8,12,8,12);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(16,16,16,16);root.setBackgroundColor(0xff11141c);
+        hint=new TextView(this);hint.setText("Apunta al QR de Mando Server en tu PC");hint.setTextColor(0xfff0f2f9);hint.setTextSize(18);hint.setPadding(8,12,8,12);
         root.addView(hint,new LinearLayout.LayoutParams(-1,-2));
         preview=new SurfaceView(this);preview.getHolder().addCallback(this);root.addView(preview,new LinearLayout.LayoutParams(-1,0,1));
         Button close=new Button(this);close.setText("Cancelar");close.setOnClickListener(view->finish());root.addView(close,new LinearLayout.LayoutParams(-1,-2));

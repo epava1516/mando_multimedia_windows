@@ -67,4 +67,8 @@ El script usa `playwright` por defecto. `PLAYWRIGHT_MODULE` permite indicar un m
 
 ## Descargar desde el portal
 
-[Descargas de Mando](https://www.sherlockhomeless.net/apps/mando/) — APK actual de pruebas, APK estable anterior y servidor Windows experimental. Acceso con el Authentik del portal. El despliegue Compose y la raíz estática acotada están en [web-downloads](web-downloads/README.md).
+[Presentación y descargas de Mando](https://mando.sherlockhomeless.net/) — landing pública, APK Android y servidor Windows, conexión por QR e instrucciones. Despliegue Compose en [web](web/README.md). La [ruta anterior del portal](https://www.sherlockhomeless.net/apps/mando/) conserva su acceso con Authentik.
+
+## Publicidad preparada, desactivada
+
+Variantes Android personal/pública y preparación de AdSense: [configuración y límites actuales](monetization/README.md). Ninguna variante carga anuncios todavía. La personal conserva su paquete y no incluirá SDK publicitario.

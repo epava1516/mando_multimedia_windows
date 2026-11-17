@@ -71,14 +71,14 @@ public final class MainActivity extends Activity {
         if(Build.VERSION.SDK_INT>=30)getWindow().setDecorFitsSystemWindows(false);
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xff102323);
+        root.setBackgroundColor(0xff11141c);
         web = new WebView(this);
         root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         keyboardRow=new LinearLayout(this);
         keyboardRow.setOrientation(LinearLayout.VERTICAL);
         keyboardRow.setPadding(12,8,12,8);
         LinearLayout editorRow=new LinearLayout(this);
-        keyboardRow.setBackgroundColor(0xff193030);
+        keyboardRow.setBackgroundColor(0xff1a1e29);
         editor=new RemoteKeyboard(this,new RemoteKeyboard.Sink() {
             public void text(String value) {
                 sendImeText(value);
@@ -122,7 +122,7 @@ public final class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setDomStorageEnabled(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        web.setBackgroundColor(0xff102323);
+        web.setBackgroundColor(0xff11141c);
         web.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view,String url) {
                 webReady=true;deliverQr();
@@ -137,14 +137,14 @@ public final class MainActivity extends Activity {
                 if (!"https".equals(uri.getScheme()) || !"mando.local".equals(uri.getHost()) ||
                         uri.getPort() != -1 || !"GET".equals(request.getMethod())) return blocked();
                 String file = "/".equals(path) ? "index.html" : "/app.js".equals(path) ? "app.js" :
-                        "/style.css".equals(path) ? "style.css" : null;
+                        "/style.css".equals(path) ? "style.css" : "/icon.svg".equals(path) ? "icon.svg" : null;
                 if (file == null) return blocked();
                 try {
                     Map<String,String> headers = new HashMap<>();
                     headers.put("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
                     headers.put("X-Content-Type-Options", "nosniff");
                     headers.put("Cache-Control", "no-store");
-                    String type = file.endsWith("js") ? "text/javascript" : file.endsWith("css") ? "text/css" : "text/html";
+                    String type = file.endsWith("js") ? "text/javascript" : file.endsWith("css") ? "text/css" : file.endsWith("svg") ? "image/svg+xml" : "text/html";
                     return new WebResourceResponse(type, "UTF-8", 200, "OK", headers, getAssets().open(file));
                 } catch (IOException e) { return blocked(); }
             }
@@ -171,7 +171,7 @@ public final class MainActivity extends Activity {
     private void resetImeModifiers() {
         imeModifiers.clear();
         for(Button button:imeModifierButtons.values()) {
-            button.setSelected(false);button.setTextColor(0xffeff7f2);
+            button.setSelected(false);button.setTextColor(0xfff0f2f9);
             button.setContentDescription(button.getText()+", desactivado");
         }
     }
@@ -207,7 +207,7 @@ public final class MainActivity extends Activity {
         for(String[] item:keys) {
             final String name=item[0];
             Button button=new Button(this);button.setText(item[1]);
-            button.setTextSize(14);button.setTextColor(0xffeff7f2);
+            button.setTextSize(14);button.setTextColor(0xfff0f2f9);
             button.setMinWidth(dp(48));button.setMinimumWidth(dp(48));
             button.setFocusable(false);button.setAllCaps(false);
             String label="LEFT".equals(name)?"Flecha izquierda":"RIGHT".equals(name)?"Flecha derecha":
@@ -221,7 +221,7 @@ public final class MainActivity extends Activity {
                 if(modifier) {
                     if(!imeModifiers.remove(name))imeModifiers.add(name);
                     boolean selected=imeModifiers.contains(name);
-                    button.setSelected(selected);button.setTextColor(selected?0xffc7ef9e:0xffeff7f2);
+                    button.setSelected(selected);button.setTextColor(selected?0xffa8b9ff:0xfff0f2f9);
                     button.setContentDescription(button.getText()+(selected?", activado":", desactivado"));
                 } else sendImeKey(name);
             });

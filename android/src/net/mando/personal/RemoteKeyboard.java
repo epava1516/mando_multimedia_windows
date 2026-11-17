@@ -31,8 +31,8 @@ final class RemoteKeyboard extends EditText {
                 EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
         setHint("Escribe directamente en el PC…");
         setContentDescription("Escribir en el PC con el teclado Android");
-        setTextColor(0xffeff7f2);setHintTextColor(0xffb1c7c0);
-        setBackgroundColor(0xff223c3b);setTextSize(16);
+        setTextColor(0xfff0f2f9);setHintTextColor(0xffb4bdcf);
+        setBackgroundColor(0xff252b3b);setTextSize(16);
         setSaveEnabled(false);setImportantForAutofill(IMPORTANT_FOR_AUTOFILL_NO);
         setFilters(new InputFilter[]{new InputFilter.LengthFilter(500)});
         addTextChangedListener(new TextWatcher() {
