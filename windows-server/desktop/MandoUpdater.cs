@@ -128,7 +128,7 @@ internal sealed class MandoUpdater : Form {
         var wrapper=Json.DeserializeObject(Fixture) as Dictionary<string,object>;
         byte[] payload=Convert.FromBase64String((string)wrapper["payload"]);payload[0]^=1;wrapper["payload"]=Convert.ToBase64String(payload);
         try{Verify(Json.Serialize(wrapper),false);return 3;}catch(CryptographicException){}
-        using(var wrong=new MemoryStream(Encoding.ASCII.GetBytes("MZtampered")))if(Matches(wrong,release))return 4;
+        using(var wrong=new MemoryStream(Encoding.ASCII.GetBytes("MZmutated")))if(Matches(wrong,release))return 4;
         return 0;
     }
     [STAThread] static int Main(string[] args) {
