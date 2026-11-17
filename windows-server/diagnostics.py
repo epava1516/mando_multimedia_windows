@@ -32,7 +32,10 @@ def desktop_status(adapter):
                 'locked':response.get('locked') is True,
                 'last_stage':stage if stage in STAGES else 'REQUEST',
                 'last_win32':code if type(code) is int and 0<=code<=2147483647 else 0}
-    except (OSError,ValueError):
+    except (OSError,ValueError) as error:
+        number=getattr(error,"winerror",None) or getattr(error,"errno",None)
+        number=number if type(number) is int and 0<=number<=2147483647 else 0
         stage=getattr(bridge,'stage','')
         return {'service_reachable':False,'probe':stage if stage in ('PIPE_OPEN','SERVICE_IDENTITY','PIPE_STATUS','PIPE_INPUT') else 'PIPE_ERROR',
-                'worker_running':False,'worker_verified':False}
+                'last_stage':stage if stage in ('PIPE_OPEN','SERVICE_IDENTITY','PIPE_STATUS','PIPE_INPUT') else 'REQUEST',
+                'last_win32':number,'worker_running':False,'worker_verified':False}

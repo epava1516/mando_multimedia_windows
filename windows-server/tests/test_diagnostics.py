@@ -25,10 +25,10 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_missing_and_failed_broker(self):
         self.assertFalse(desktop_status(object())['service_reachable'])
-        bridge=Mock(stage='PIPE_OPEN');bridge.request.side_effect=OSError('C:/private/secret')
+        bridge=Mock(stage='PIPE_OPEN');bridge.request.side_effect=OSError(5,'C:/private/secret')
         result=desktop_status(SimpleNamespace(desktop_bridge=bridge))
         self.assertFalse(result['service_reachable']);self.assertEqual(result['probe'],'PIPE_OPEN')
-        self.assertNotIn('secret',str(result))
+        self.assertNotIn('secret',str(result));self.assertEqual(result['last_win32'],5)
 
     def test_old_broker_reports_unknown_worker_instead_of_ready(self):
         bridge=Mock();bridge.request.return_value={'ok':True,'available':True,'locked':True}
