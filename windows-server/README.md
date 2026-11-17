@@ -125,3 +125,9 @@ El QR contiene el código completo: IPv4 privada, puerto, huella SHA256 del cert
 La app conserva la autorización cifrada con Keystore. Otro QR del mismo certificado actualiza el destino y reutiliza el dispositivo existente. Si el router cambia la IP, Buscar en Wi-Fi → PC encontrado → Conectar usa la nueva dirección pero mantiene el pin TLS: no envía tokens a otro certificado. Un PC nuevo o una identidad/autoridad revocada requiere otro QR. El servidor observa la pérdida de su dirección y reinicia en una dirección privada disponible.
 
 Solo se conserva un PC autorizado en esta versión. Reinstalar Windows, borrar los datos de la app o revocar dispositivos puede requerir repetir el emparejamiento. La búsqueda por sí sola no autoriza otro PC.
+
+## Diagnóstico desde Android (alpha.13)
+
+Instalador actual: https://mando.sherlockhomeless.net/downloads/MandoSetup-0.5.0-alpha.13.exe . Ejecutarlo en Windows para actualizar backend y broker manteniendo la identidad y emparejamientos. APK Android alpha.24: Ajustes → Diagnóstico del servidor → Actualizar / Copiar. Acceso mediante TLS autorizado y eventos acotados desde el arranque; no acceso a archivos arbitrarios ni logs históricos del sistema. El panel no inyecta entrada, no arranca el worker para probarlo y no corrige por sí solo el fallo de bloqueo/UAC.
+
+Windows CI 44198954040 compiló broker, tray, servidor y EXE y pasó los tests de protocolo, portapapeles nativo, identidad IPC, servidor empaquetado, instalación, actualización y desinstalación: https://github.com/epava1516/mando_multimedia_windows/actions/runs/44198954040 . Esto no sustituye validar el escritorio bloqueado en el PC físico.

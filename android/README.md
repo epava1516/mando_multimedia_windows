@@ -117,3 +117,5 @@ Servicio privado de tipo connectedDevice, iniciado desde la app visible al conec
 ## Diagnóstico remoto (alpha.24)
 
 Ajustes → Diagnóstico del servidor abre un panel nativo con Actualizar, Copiar y Cerrar. Necesita conexión y Mando Server alpha.13; servidores anteriores muestran que requieren actualización sin enviarles una operación desconocida. Consulta manual mediante la cola TLS existente; el cierre del panel/salida de la app descarta la respuesta visual pendiente. El texto seleccionable y desplazable solo muestra campos permitidos. No sincroniza portapapeles automáticamente: Copiar coloca el informe en el portapapeles Android solo al pulsarlo.
+
+Prueba JVM del filtrado del informe: compilar `DiagnosticText.java` y `tests/DiagnosticTextTest.java` con una implementación real de org.json (android.jar solo contiene stubs). Verificado con org.json20250517 de Maven Central, SHA256 `3ea61b2a06e31edf1c91134fe9106b0ebb16628be169f3db75bc7a2b06b45796`, únicamente en el entorno temporal de pruebas; no se añade al APK.

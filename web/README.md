@@ -2,7 +2,7 @@
 
 Landing pública: https://mando.sherlockhomeless.net/. Homepage apunta a esta página. La ruta anterior `/apps/mando/` conserva su autenticación.
 
-HTML y CSS locales sin JavaScript, formularios ni analítica. Solo `public/` se sirve por Nginx; contiene APK alpha.23, EXE alpha.12, instrucciones, hashes, metadatos y recursos visuales. No montar la raíz del proyecto ni publicar claves o `.state`.
+HTML y CSS locales sin JavaScript, formularios ni analítica. Solo `public/` se sirve por Nginx; contiene APK alpha.24, EXE alpha.13, instrucciones, hashes, metadatos y recursos visuales. No montar la raíz del proyecto ni publicar claves o `.state`.
 
 Despliegue desde este directorio:
 
@@ -26,3 +26,5 @@ Ejecutar `python3 update_schema.py` desde este directorio tras actualizar `relea
 La app se describe semánticamente, pero sin valoraciones/reseñas reales no es elegible actualmente para el resultado enriquecido de software de Google. No se han inventado Review, AggregateRating, ofertas, precios, editor legal, fechas o una ficha de Play. Tampoco se añade Product para eludir requisitos ni FAQ/HowTo para apariencias retiradas. Los datos describen la APK personal actualmente descargable, no la variante pública ni compras futuras aún desactivadas.
 
 Guías: https://developers.google.com/search/docs/appearance/site-names y https://developers.google.com/search/docs/appearance/structured-data/software-app . Validación local de JSON y referencias y comprobación HTTP no equivalen a una aprobación de Rich Results Test o a indexación en Search Console.
+
+Para copiar binarios usar `python3 publish_download.py /ruta/al/artefacto Nombre-version.apk --legacy` (o `.exe`). Publica de forma atómica, con permisos0644 y etiqueta SELinux heredada del directorio de destino. No usar copy2/cp --preserve=xattr desde /tmp: una etiqueta user_tmp_t produce Forbidden de Nginx. Actualizar después hashes, release.json, versiones visibles y ejecutar update_schema.py. Comprobar tanto descarga real como SHA-256, no solo la landing.
