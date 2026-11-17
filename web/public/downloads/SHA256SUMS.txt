@@ -1,2 +1,2 @@
-63d748e28330f50f7f2f6a5d39e3eb53c6ac09580a13f455884ca6ed8642c259  mando-0.5.0-alpha.22.apk
+d3413989c069bf61d2d3ff3e2c81f4f603d41d47c5828cccc0e5c608ac4e1e4d  mando-0.5.0-alpha.23.apk
 dae68ab133a4228199e89ebe59cbf6ff19aa5fe69b37a7e75d2f3a9c7189abfe  MandoSetup-0.5.0-alpha.12.exe

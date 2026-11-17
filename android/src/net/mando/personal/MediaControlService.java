@@ -52,16 +52,24 @@ public final class MediaControlService extends Service {
         Intent intent = new Intent(this, MediaControlService.class).setAction("net.mando.media."+key);
         return PendingIntent.getService(this,id,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
     }
+    private android.graphics.Bitmap notificationLogo() {
+        android.graphics.drawable.Drawable logo=getDrawable(R.drawable.ic_mando);
+        int size=Math.round(64*getResources().getDisplayMetrics().density);
+        android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(size,size,android.graphics.Bitmap.Config.ARGB_8888);
+        logo.setBounds(0,0,size,size);logo.draw(new android.graphics.Canvas(image));
+        return image;
+    }
     private Notification notification() {
         PendingIntent open = PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Mando · PC conectado").setContentText("Multimedia y volumen del PC")
+            .setContentTitle("Mando").setContentText("PC conectado").setSubText("Conectado")
+            .setColor(0xffa8b9ff).setColorized(true).setShowWhen(false).setLargeIcon(notificationLogo())
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_previous,"Anterior",command("PREVIOUS",1)).build())
-            .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_play,"Play / pausa",command("PLAY_PAUSE",2)).build())
-            .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_next,"Siguiente",command("NEXT",3)).build())
+            .addAction(new Notification.Action.Builder(R.drawable.ic_media_previous,"Anterior",command("PREVIOUS",1)).build())
+            .addAction(new Notification.Action.Builder(R.drawable.ic_media_toggle,"Play / pausa",command("PLAY_PAUSE",2)).build())
+            .addAction(new Notification.Action.Builder(R.drawable.ic_media_next,"Siguiente",command("NEXT",3)).build())
             .addAction(new Notification.Action.Builder(R.drawable.ic_volume_down,"Bajar volumen",command("VOLUME_DOWN",4)).build())
             .addAction(new Notification.Action.Builder(R.drawable.ic_volume_up,"Subir volumen",command("VOLUME_UP",5)).build())
             .setStyle(new Notification.MediaStyle().setShowActionsInCompactView(0,1,2))

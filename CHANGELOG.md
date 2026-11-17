@@ -150,3 +150,8 @@ Primera publicación estable, confirmada por el usuario.
 - Controles multimedia en notificación conectada: anterior, play/pausa, siguiente y volumen al expandir.
 - Servicio connectedDevice conserva el enlace al salir si las notificaciones están permitidas; heartbeat y desconexión retiran el control cuando termina el enlace.
 - Cola de red compartida, intents privados e inmutables y conjunto cerrado de teclas; sin reintentos automáticos de órdenes.
+
+## 0.5.0-alpha.23
+
+- Notificación refinada con logo propio, marca monocroma legible, iconos multimedia de trazo uniforme y texto compacto. Color de marca solicitado a Android; la personalización del fabricante puede aplicar sus propios colores.
+- Vistas compacta y expandida revisadas en el móvil Xiaomi del usuario. No se ha cambiado su tamaño de texto ni tema global para las comprobaciones.
