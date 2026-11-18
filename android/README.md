@@ -123,3 +123,20 @@ Prueba JVM del filtrado del informe: compilar `DiagnosticText.java` y `tests/Dia
 ## Diagnóstico avanzado (alpha.25)
 
 Ajustes → Diagnóstico avanzado, disponible con Mando Server alpha.14. Muestra comprobaciones de identidad/sesión, estado/cuenta clasificada/PID del servicio y trazas de un sondeo nuevo de solo lectura. Actualizar repite solo las comprobaciones; Copiar exporta únicamente los campos permitidos. No es una consola remota. No abre otro puerto ni ejecuta comandos ni entrada de teclado/ratón.
+
+## Diagnóstico por ADB y controles de bloqueo (alpha.26)
+
+Ajustes → Diagnóstico por ADB permite activar/desactivar el registro técnico, incluso sin conexión al PC. Por defecto está desactivado. «Guardar ahora» consulta el informe avanzado por el canal TLS ya emparejado. Ante una acción rechazada, consulta una vez ese informe antes de cerrar el transporte; nunca repite la entrada. Si el canal ya ha caído, conserva el informe anterior y registra el fallo de consulta.
+
+El archivo conserva hasta 32 códigos locales y el último informe del servidor con fecha de captura; reutiliza el formateador con campos permitidos del diálogo. No exporta acciones, textos, tokens, excepciones, portapapeles ni contraseñas. Se conserva tras reiniciar la app y se borra al desactivar la opción. No requiere root, APK depurable ni permisos de lectura global de logs. Se lee mediante una sesión ADB ya autorizada:
+
+```bash
+adb shell cat /sdcard/Android/data/net.mando.personal/files/diagnostics/latest.txt
+adb logcat -d -s MandoDiag:I '*:S'
+```
+
+Logcat solo contiene códigos fijos; el informe del PC está en el archivo. La variante pública usa `net.mando.publicapp` en su ruta. El archivo queda en almacenamiento específico de la aplicación y no se publica en la web.
+
+Los controles de notificación usan una MediaSession activa solo mientras existe conexión retenida. Permiten anterior, play/pausa, siguiente y volumen en las superficies multimedia y pantalla de bloqueo de Android. No solicitan foco de audio ni reproducen sonido en el móvil. No se conoce el estado de reproducción del navegador remoto: se anuncia un mando listo en pausa, sin inferir el estado del reproductor. Android y el fabricante deciden qué controles muestran y pueden ocultarlos si el usuario restringe las notificaciones de bloqueo. Desconectar libera la sesión y descarta acciones caducadas.
+
+`OwnClientDiagnosticTest` prueba el protocolo real con tramas simuladas: una consulta de solo lectura tras el rechazo si hay consentimiento, cierre de sesión, no captura tras secuencia inválida y ninguna repetición de entrada. Usa el stub de exportación exclusivamente en JVM; no se compila dentro de la APK. `DiagnosticTextTest` comprueba filtros y límites del informe.

@@ -184,3 +184,9 @@ Primera publicación estable, confirmada por el usuario.
 - El actualizador selecciona explícitamente TLS del sistema y declara .NET Framework 4.8 para evitar las opciones TLS heredadas de ejecutables compilados con Add-Type. No modifica certificados, políticas de Windows ni validación de firma.
 - Códigos UPD por fase y tipo de fallo, sin contenido de excepciones o rutas locales. Límite de tiempo real para transferencias asíncronas.
 - Prueba Windows con el EXE real que descarga el manifiesto HTTPS y el instalador publicado y verifica firma, tamaño y hash; nunca ejecuta el instalador en esa prueba.
+
+## Android 0.5.0-alpha.26
+
+- Opción de diagnóstico por ADB accesible sin conexión: último informe filtrado persistente, eventos locales acotados, borrado al desactivar. Consulta automática de solo lectura después de una acción rechazada, antes de desconectar y sin repetir la acción.
+- MediaSession vinculada a la notificación para controles multimedia en el bloqueo de Android, limitada a la conexión activa y sin pedir foco de audio.
+- Pruebas de secuencia, captura voluntaria y ausencia de repetición; compilación y firma de las ediciones personal y pública.

@@ -65,6 +65,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        AdbDiagnostics.init(this);AdbDiagnostics.event("APP_OPENED");
         if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED
                 && !getPreferences(MODE_PRIVATE).getBoolean("notificationAsked",false)) {
             getPreferences(MODE_PRIVATE).edit().putBoolean("notificationAsked",true).apply();
@@ -276,7 +277,8 @@ public final class MainActivity extends Activity {
             String report;boolean valid=false;
             try {
                 if(!foreground || !resume.current(stamp))throw new IOException("Vuelve a abrir el diagnóstico");
-                report=DiagnosticText.format(ownClient.diagnostics(advanced));valid=true;
+                JSONObject diagnostic=ownClient.diagnostics(advanced);
+                report=DiagnosticText.format(diagnostic);AdbDiagnostics.server(diagnostic);valid=true;
             } catch(Exception error) {
                 report=ownClient.isConnected()?"Actualiza Mando Server a alpha.14 o posterior o vuelve a conectar.":
                     "No se pudo consultar el servidor. Comprueba la conexión con el PC.";
@@ -436,6 +438,30 @@ public final class MainActivity extends Activity {
         dialog.show();
     }
 
+    private void showAdbDiagnostics() {
+        LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);layout.setPadding(dp(20),dp(12),dp(20),dp(12));
+        android.widget.Switch toggle=new android.widget.Switch(this);toggle.setText("Guardar diagnóstico para ADB");toggle.setChecked(AdbDiagnostics.enabled());
+        layout.addView(toggle);
+        android.widget.TextView info=new android.widget.TextView(this);
+        info.setText("Guarda hasta 32 eventos técnicos y el último informe del servidor. No guarda teclas, texto, contraseñas, portapapeles ni tokens. Al desactivarlo se borra el archivo.\n\nArchivo legible por ADB:\n"+AdbDiagnostics.path());
+        info.setTextIsSelectable(true);info.setPadding(0,dp(12),0,dp(12));layout.addView(info);
+        toggle.setOnCheckedChangeListener((button,checked)->AdbDiagnostics.setEnabled(checked));
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Diagnóstico por ADB").setView(layout)
+            .setPositiveButton("Cerrar",null).setNeutralButton("Guardar ahora",null).create();
+        dialog.setOnShowListener(ignored->dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view->{
+            if(!AdbDiagnostics.enabled()){Toast.makeText(this,"Activa primero el diagnóstico por ADB",Toast.LENGTH_SHORT).show();return;}
+            if(!ownClient.isConnected()){Toast.makeText(this,"Sin conexión. Se conserva el último informe guardado",Toast.LENGTH_LONG).show();return;}
+            try {worker.execute(()->{
+                boolean ok=false;
+                try {AdbDiagnostics.server(ownClient.diagnostics(true));ok=true;}
+                catch(Exception failure){AdbDiagnostics.event("CAPTURE_FAILED");}
+                final boolean saved=ok;
+                runOnUiThread(()->{if(!destroyed)Toast.makeText(this,saved?"Informe guardado para ADB":"No se pudo consultar el servidor; se conserva el informe anterior",Toast.LENGTH_LONG).show();});
+            });}catch(java.util.concurrent.RejectedExecutionException busy){Toast.makeText(this,"Espera a que termine la operación actual",Toast.LENGTH_SHORT).show();}
+        }));
+        dialog.show();
+    }
+
     private Network wifi() throws IOException {
         ConnectivityManager manager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         for (Network network : manager.getAllNetworks()) {
@@ -472,7 +498,9 @@ public final class MainActivity extends Activity {
                         JSONObject data = request.optJSONObject("data");
                         boolean input="/api/action".equals(path)||"/api/lock".equals(path)||"/api/keyboard".equals(path)||"/api/ir/send".equals(path);
                         if(input && (!foreground||!resume.current(stamp)||(duringRecovery&&!"/api/ir/send".equals(path))))result.put("expired",true);
-                        else if ("/api/server-diagnostics".equals(path)||"/api/server-diagnostics-advanced".equals(path)) {
+                        else if ("/api/adb-diagnostics".equals(path)) {
+                            runOnUiThread(()->{if(foreground&&!destroyed)showAdbDiagnostics();});result.put("ok",true);
+                        } else if ("/api/server-diagnostics".equals(path)||"/api/server-diagnostics-advanced".equals(path)) {
                             runOnUiThread(() -> {if(foreground&&!destroyed)showServerDiagnostics("/api/server-diagnostics-advanced".equals(path));});
                             result.put("ok",true);
                         } else if ("/api/ir/status".equals(path)) {

@@ -545,3 +545,5 @@ api('/api/status').then(result => {
 $('server-diagnostics').addEventListener('click',()=>api('/api/server-diagnostics',{}).catch(error=>status(error.message,true)));
 
 $('server-diagnostics-advanced').addEventListener('click',()=>api('/api/server-diagnostics-advanced',{}).catch(error=>status(error.message,true)));
+
+$('adb-diagnostics').addEventListener('click',()=>api('/api/adb-diagnostics',{}).catch(error=>status(error.message,true)));

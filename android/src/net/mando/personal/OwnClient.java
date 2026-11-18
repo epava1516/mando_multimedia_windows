@@ -24,7 +24,8 @@ final class OwnClient implements InputClient {
 
     public boolean isConnected() {Socket current=socket;return ready && current!=null && !current.isClosed();}
     public void close() {
-        ready=false;Socket previous=socket;socket=null;
+        boolean connected=ready;ready=false;Socket previous=socket;socket=null;
+        if(connected)AdbDiagnostics.event("DISCONNECTED");
         SocketCloser.close(previous);
     }
     boolean supportsClipboard(){return capabilities.optBoolean("clipboard_text",false);}
@@ -95,7 +96,7 @@ final class OwnClient implements InputClient {
                 profile.put("id",device.getString("id")).put("token",device.getString("token"));
             }
             if(!profile.has("token"))throw new IOException("Actualiza el servidor propio para guardar el dispositivo");
-            ready=true;return profile;
+            ready=true;AdbDiagnostics.event("CONNECTED");return profile;
         }catch(Exception error){close();throw error;}
     }
     private JSONObject read() throws Exception {
@@ -117,9 +118,18 @@ final class OwnClient implements InputClient {
             if(data!=null)request.put("action",data);
             write(request);JSONObject reply=read();
             if(reply.optInt("id")!=id)throw new IOException("Secuencia propia inválida");
-            if(!reply.optBoolean("ok"))throw new IOException("El servidor propio no ha aceptado la acción; no se repetirá");
+            if(!reply.optBoolean("ok")) {
+                if("action".equals(operation)&&AdbDiagnostics.enabled()) {
+                    AdbDiagnostics.event("ACTION_REJECTED");
+                    // The server accepts read-only diagnostics after rejecting input.
+                    // Query once before closing. Never replay the rejected action.
+                    try {AdbDiagnostics.server(diagnostics(true));}
+                    catch(Exception failure){AdbDiagnostics.event("CAPTURE_FAILED");}
+                }
+                throw new IOException("El servidor propio no ha aceptado la acción; no se repetirá");
+            }
             return reply;
-        }catch(Exception error){close();throw error;}
+        }catch(Exception error){AdbDiagnostics.event("REQUEST_FAILED");close();throw error;}
     }
     JSONObject diagnostics(boolean advanced) throws Exception {
         if(!capabilities.optBoolean("diagnostics_v1",false))
