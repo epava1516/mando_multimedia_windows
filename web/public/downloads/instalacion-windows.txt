@@ -1,6 +1,6 @@
 MANDO — INSTALADOR WINDOWS
 
-1. Descarga MandoSetup-0.5.0-alpha.15.exe y abrelo con doble clic.
+1. Descarga MandoSetup-0.5.0-alpha.16.exe y abrelo con doble clic.
 2. Acepta el permiso de administrador para instalar el servicio local de bloqueo.
 3. Al terminar, cierra Remote Mouse y abre Mando Server desde Inicio con tu cuenta normal.
 4. La IP se detecta automaticamente. Si hay varias redes, selecciona tu Wi-Fi o Ethernet de casa.
@@ -27,3 +27,6 @@ El QR contiene IP, puerto, identidad TLS y PIN temporal. La app conserva la auto
 
 ACTUALIZACION Y UAC (alpha.15)
 En el panel o bandeja: Buscar actualizacion. Descarga y verifica el instalador firmado en el manifiesto y vuelve a abrir Mando tras instalar. Habra un corte breve y Windows puede pedir UAC. El control manual de UAC se incluye desde alpha.15 y requiere prueba en tu PC; al actualizar desde alpha.14 acepta la elevacion en el PC. No se cambian las politicas de UAC ni se aceptan solicitudes automaticamente.
+
+ACTUALIZADOR (alpha.16)
+Corrige la negociacion TLS del actualizador. Si alpha.14/15 falla antes de ofrecer la version, descarga e instala alpha.16 una vez desde el navegador. Conserva el emparejamiento. Los fallos posteriores muestran codigo UPD por fase para diagnosticar conexion, firma, descarga o instalacion.
