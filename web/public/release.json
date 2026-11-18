@@ -1,12 +1,12 @@
 [
   {
-    "file": "mando-0.5.0-alpha.24.apk",
-    "bytes": 677087,
-    "sha256": "738ec614e3b247c43ef7ac95114a9e6653f512e69e60361b861dcc85b4f769c4"
+    "file": "mando-0.5.0-alpha.25.apk",
+    "bytes": 681183,
+    "sha256": "a7434ff37982b82791d6a4c0f4993f98dc1ac5156237f89810fbc647654fe770"
   },
   {
-    "file": "MandoSetup-0.5.0-alpha.13.exe",
-    "bytes": 14265061,
-    "sha256": "e8b1c155e6f923f9191489eb8efaa61ce89d27e4c9d950d7ca4f7ee6396b8e53"
+    "file": "MandoSetup-0.5.0-alpha.14.exe",
+    "bytes": 14283265,
+    "sha256": "13bc7e564c8ab4001aa15067ef0a7618e0590aee8eb0fbac43a3ad80e6538f3f"
   }
 ]
