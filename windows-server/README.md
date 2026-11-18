@@ -159,3 +159,5 @@ Los fallos muestran códigos fijos como `UPD-MANIFEST-TLS`, `UPD-MANIFEST-DNS`, 
 ## Canal local ocupado (alpha.17)
 
 Si CreateFile devuelve ERROR_PIPE_BUSY (231), el cliente espera con WaitNamedPipe dentro del mismo plazo máximo antes de abrir de nuevo. Esto resuelve carreras al cerrar el canal anterior o reconectar el diagnóstico. Se verifica el PID del servicio después de abrir y antes de escribir. Nunca se reintenta una trama enviada, un rechazo ni un fallo de identidad/acceso. La espera agotada conserva el código 231 para distinguir un canal permanentemente ocupado de una carrera breve. La validación física de UAC sigue pendiente.
+
+La prueba de relevo reprodujo además un fallo del servidor: tras EOF, IsConnected pasaba a falso y se omitía Disconnect; la instancia nativa quedaba ocupada permanentemente. El broker usa ahora el hecho de haber aceptado la conexión, y la desconecta incluso si el flujo ya está roto, antes de volver a escuchar. Referencia del comportamiento en .NET Framework: https://github.com/microsoft/referencesource/blob/main/System.Core/System/IO/Pipes/Pipe.cs .

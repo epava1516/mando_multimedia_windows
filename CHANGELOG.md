@@ -196,3 +196,5 @@ Primera publicación estable, confirmada por el usuario.
 - Evidencia del PC: servicio en ejecución, cuenta/sesión correctas y error nativo 231 (pipe ocupado) antes de enviar entrada. La apertura espera la disponibilidad dentro del plazo original; conserva las comprobaciones de identidad y no reenvía tramas. Otros errores, como acceso denegado, no se reintentan.
 - Pruebas de espera, límite de tiempo y rechazo; prueba Windows de relevo real entre dos clientes sin entrada.
 - El informe Android muestra códigos alfanuméricos como WIN32, que antes aparecían como UNKNOWN. No se da por validada la interacción UAC física hasta repetir la prueba en el PC.
+
+- La prueba nativa reprodujo un atasco permanente: el broker omitía Disconnect cuando EOF cambiaba IsConnected a falso. Limpia ahora toda conexión aceptada, también en estado roto, antes de volver a escuchar. La espera por sí sola no resolvía ese atasco.

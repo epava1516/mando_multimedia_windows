@@ -260,11 +260,12 @@ internal sealed class MandoDesktopBroker : ServiceBase {
             using(NamedPipeServerStream pipe=NewPipe(PublicPipe,allowedSid)) {
                 listener=pipe;
                 while(!stopping) {
+                    bool accepted=false;
                     try {
                         IAsyncResult accept=pipe.BeginWaitForConnection(null,null);
                         using(WaitHandle wait=accept.AsyncWaitHandle) {
                             while(!wait.WaitOne(1000)){if(stopping)return;}
-                            pipe.EndWaitForConnection(accept);
+                            pipe.EndWaitForConnection(accept);accepted=true;
                         }
                         uint session=WTSGetActiveConsoleSessionId();
                         string rejected=AuthorizationFailure(pipe,session);
@@ -298,7 +299,9 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                             Write(pipe,new{ok=response.ContainsKey("ok")&&Object.Equals(response["ok"],true)});
                         }
                     } catch(Exception error) {if(currentStage!="REQUEST")CaptureFailure(error);StopWorker();}
-                    finally {if(!stopping&&pipe.IsConnected)pipe.Disconnect();}
+                    // EOF changes IsConnected to false (Broken), but the native
+                    // server instance still needs Disconnect before it can listen.
+                    finally {if(!stopping&&accepted)pipe.Disconnect();}
                 }
             }
         } catch {if(!stopping)Environment.Exit(2);}
