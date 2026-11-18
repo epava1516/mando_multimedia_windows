@@ -57,6 +57,7 @@ internal sealed class MandoDesktopBroker : ServiceBase {
     [DllImport("wtsapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
     static extern bool WTSQuerySessionInformation(IntPtr server,uint session,int information,out IntPtr buffer,out uint size);
     [DllImport("wtsapi32.dll")] static extern void WTSFreeMemory(IntPtr memory);
+    [DllImport("wtsapi32.dll",SetLastError=true)] static extern bool WTSQueryUserToken(uint session,out IntPtr token);
     [DllImport("user32.dll",SetLastError=true)] static extern IntPtr OpenInputDesktop(uint flags,bool inherit,uint access);
     [DllImport("user32.dll")] static extern bool CloseDesktop(IntPtr desktop);
     [DllImport("user32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
@@ -123,6 +124,19 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         try {return bytes>=20 && Marshal.ReadInt32(buffer)==1 && Marshal.ReadInt32(buffer,16)==0;}
         finally {WTSFreeMemory(buffer);}
     }
+    static string ConsoleSid(uint session) {
+        IntPtr token;
+        if(session==UInt32.MaxValue||!WTSQueryUserToken(session,out token))return null;
+        try {using(WindowsIdentity identity=new WindowsIdentity(token)){return identity.User==null?null:identity.User.Value;}}
+        finally {CloseHandle(token);}
+    }
+    // Lock and UAC both use Winlogon. Never permit this SYSTEM worker on Default,
+    // on an unknown desktop, for another account, or outside the active console.
+    static bool SecureContextAllowed(uint session,uint console,string actualSid,string expectedSid,string desktop) {
+        return console!=UInt32.MaxValue&&session==console&&actualSid!=null&&expectedSid!=null&&
+            String.Equals(actualSid,expectedSid,StringComparison.Ordinal)&&
+            String.Equals(desktop,"Winlogon",StringComparison.OrdinalIgnoreCase);
+    }
     static string InputDesktop() {
         IntPtr handle=OpenInputDesktop(0,false,1);if(handle==IntPtr.Zero)return "";
         try {StringBuilder name=new StringBuilder(128);uint size;return GetUserObjectInformation(handle,2,name,256,out size)?name.ToString():"";}
@@ -174,7 +188,7 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                     switch(name){case "CTRL":codes.Add(17);break;case "ALT":codes.Add(18);break;case "SHIFT":codes.Add(16);break;case "WIN":codes.Add(91);break;default:throw new IOException();}
                 }
                 codes.Add(key);foreach(ushort code in codes)result.Add(Key(code,false,0));codes.Reverse();foreach(ushort code in codes)result.Add(Key(code,true,0));break;
-            default:throw new IOException("Action not allowed on lock screen");
+            default:throw new IOException("Action not allowed on secure desktop");
         }
         return result.ToArray();
     }
@@ -269,11 +283,16 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                             object raw;Dictionary<string,object> action;
                             if(Text(request,"op")!="input"||!request.TryGetValue("action",out raw)||(action=raw as Dictionary<string,object>)==null)throw new IOException();
                             BuildEvents(action); // Validate before creating any privileged worker.
-                            if(!Locked(session)) {lastStage="SESSION_LOCK";lastWin32=0;Write(pipe,new{ok=false});continue;}
+                            // The service runs in session 0: only the worker in the authorized console
+                            // can inspect its input desktop. Do not confuse UAC with session lock.
+                            if(!String.Equals(ConsoleSid(session),allowedSid,StringComparison.Ordinal)) {
+                                lastStage="SESSION_IDENTITY";lastWin32=0;StopWorker();Write(pipe,new{ok=false});continue;
+                            }
                             EnsureWorker(session);Stage("WORKER_REPLY");Write(workerPipe,action);Dictionary<string,object> response=Read(workerPipe,3000);
                             if(!Object.Equals(response.ContainsKey("ok")?response["ok"]:null,true)) {
                                 object stageValue,codeValue;
-                                lastStage=response.TryGetValue("stage",out stageValue)&&Object.Equals(stageValue,"SEND_INPUT")?"SEND_INPUT":"INPUT_DESKTOP";
+                                lastStage=response.TryGetValue("stage",out stageValue)&&Object.Equals(stageValue,"SEND_INPUT")?"SEND_INPUT":
+                                    Object.Equals(stageValue,"SESSION_IDENTITY")?"SESSION_IDENTITY":"INPUT_DESKTOP";
                                 lastWin32=response.TryGetValue("win32",out codeValue)&&codeValue is int?Math.Max(0,(int)codeValue):0;
                             }
                             Write(pipe,new{ok=response.ContainsKey("ok")&&Object.Equals(response["ok"],true)});
@@ -293,6 +312,8 @@ internal sealed class MandoDesktopBroker : ServiceBase {
     static int Worker(string nonce) {
         if(!WindowsIdentity.GetCurrent().IsSystem||nonce.Length!=32)return 5;
         foreach(char c in nonce)if(!Uri.IsHexDigit(c))return 5;
+        string expectedSid=File.ReadAllText(Path.Combine(Root,"allowed.sid")).Trim();
+        new SecurityIdentifier(expectedSid);
         using(NamedPipeClientStream pipe=new NamedPipeClientStream(".","Mando.Private."+nonce,PipeDirection.InOut,PipeOptions.Asynchronous)) {
             pipe.Connect(5000);
             while(true) {
@@ -300,8 +321,13 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                 bool ok=false;int code=0;string stage="INPUT_DESKTOP";
                 try {
                     uint session=(uint)Process.GetCurrentProcess().SessionId;
-                    if(session==WTSGetActiveConsoleSessionId()&&Locked(session)&&String.Equals(InputDesktop(),"Winlogon",StringComparison.OrdinalIgnoreCase)) {
-                        stage="SEND_INPUT";Execute(BuildEvents(action));ok=true;
+                    INPUT[] events=BuildEvents(action);
+                    uint console=WTSGetActiveConsoleSessionId();
+                    string actualSid=ConsoleSid(session);
+                    if(SecureContextAllowed(session,console,actualSid,expectedSid,InputDesktop())) {
+                        stage="SEND_INPUT";Execute(events);ok=true;
+                    } else if(actualSid==null||!String.Equals(actualSid,expectedSid,StringComparison.Ordinal)||session!=console) {
+                        stage="SESSION_IDENTITY";
                     }
                 } catch(Exception error) {var native=error as System.ComponentModel.Win32Exception;code=native==null?0:Math.Max(0,native.NativeErrorCode);}
                 Write(pipe,new{ok=ok,stage=stage,win32=code});
@@ -309,6 +335,14 @@ internal sealed class MandoDesktopBroker : ServiceBase {
         }
     }
     static int SelfTest() {
+        // Pure policy matrix: UAC does not require Locked(session). The real
+        // worker obtains every value from Windows immediately before SendInput.
+        const string sid="S-1-5-21-1-2-3-1001";
+        if(!SecureContextAllowed(1,1,sid,sid,"Winlogon"))throw new Exception("Secure console rejected");
+        if(SecureContextAllowed(1,1,sid,sid,"Default")||SecureContextAllowed(1,1,sid,sid,""))throw new Exception("Unsafe desktop accepted");
+        if(SecureContextAllowed(1,1,sid,sid,"Winlogon-other"))throw new Exception("Desktop prefix accepted");
+        if(SecureContextAllowed(1,2,sid,sid,"Winlogon")||SecureContextAllowed(1,UInt32.MaxValue,sid,sid,"Winlogon"))throw new Exception("Inactive console accepted");
+        if(SecureContextAllowed(1,1,"S-1-5-21-9-8-7-1001",sid,"Winlogon")||SecureContextAllowed(1,1,null,sid,"Winlogon"))throw new Exception("Wrong or unknown account accepted");
         int expected=IntPtr.Size==8?40:28;if(Marshal.SizeOf(typeof(INPUT))!=expected)throw new Exception("INPUT ABI");
         if(BuildEvents(new Dictionary<string,object>{{"type","move"},{"dx",1},{"dy",-1}}).Length!=1)throw new Exception();
         if(BuildEvents(new Dictionary<string,object>{{"type","text"},{"text","a\u00f1\ud83d\ude42"}}).Length!=8)throw new Exception();

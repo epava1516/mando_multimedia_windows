@@ -172,3 +172,9 @@ Primera publicación estable, confirmada por el usuario.
 - El instalador abre Mando Server al finalizar por defecto con la identidad original previa a UAC (casilla desmarcable). La instalación silenciosa no abre ventanas. La bandeja continúa rechazando la ejecución elevada.
 
 - Botón Buscar actualización en el panel y bandeja: manifiesto firmado, verificación del instalador y regreso automático a la bandeja tras la instalación silenciosa. Mantiene el servidor disponible durante la descarga; requiere autorización UAC si Windows la solicita.
+
+## Windows Server 0.5.0-alpha.15
+
+- Entrada manual en UAC sobre el escritorio seguro, sin exigir que la sesión esté bloqueada.
+- El worker comprueba el escritorio Winlogon, consola activa y cuenta autorizada antes de cada lote. Mantiene la autenticación TLS, el ACL local y las identidades de ambos extremos IPC.
+- Rechazo cerrado ante cambios de cuenta, sesión o escritorio; sin repetición de acciones ni aceptación automática de UAC. Pruebas de política nativas y de encaminamiento sin reintentos.

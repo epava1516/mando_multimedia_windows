@@ -1,4 +1,4 @@
-MANDO SERVER — 0.5.0-alpha.12 (experimental)
+MANDO SERVER — 0.5.0-alpha.15 (experimental)
 
 El instalador incluye el servidor y configura bloqueo y gestos. No necesitas Python ni ejecutar comandos de PowerShell.
 
@@ -15,6 +15,6 @@ Portapapeles: copia texto o una URL en el PC; Android → Teclado → Portapapel
 
 Actualizaciones: el instalador reemplaza solo el componente de escritorio reconocido. Conserva certificados y autorizaciones en LocalAppData. Para desinstalar usa Configuracion → Aplicaciones → Mando Server.
 
-El portapapeles pasa pruebas reales de Windows con URLs y formatos adicionales. El servidor propio sigue siendo experimental; falta verificar gestos y pantalla bloqueada en tu PC. No cubre primer inicio de sesion, UAC ni RDP.
+El portapapeles pasa pruebas reales de Windows con URLs y formatos adicionales. El servidor propio sigue siendo experimental; falta verificar gestos y pantalla bloqueada en tu PC. Incluye entrada manual en el escritorio seguro de UAC para la cuenta y consola autorizadas. No cubre primer inicio de sesion, ventanas elevadas en el escritorio normal ni RDP. No modifica las politicas de UAC ni acepta solicitudes automaticamente.
 
 El PC queda recordado. Si cambia su IP: Android → Buscar en Wi-Fi → elige el PC → Conectar. Solo usara la autorizacion guardada si el certificado coincide; no requiere otro QR por un cambio de IP. Otro QR del mismo PC tambien reutiliza el vinculo.

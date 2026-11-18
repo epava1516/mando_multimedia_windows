@@ -72,6 +72,25 @@ class ProtocolTests(unittest.TestCase):
         adapter.send.assert_not_called()
         with self.assertRaises(RuntimeError):adapter.execute({'type':'task_view'})
 
+    def test_uac_routes_only_restricted_input_and_never_retries_rejection(self):
+        adapter=WindowsInput.__new__(WindowsInput)
+        adapter.default_desktop=lambda:False  # UAC is not Default, even while unlocked.
+        adapter.send=Mock();adapter.desktop_bridge=Mock()
+        actions=[{'type':'move','dx':0,'dy':0}, {'type':'click','button':'left'},
+                 {'type':'scroll','steps':1}, {'type':'scroll_horizontal','steps':1},
+                 {'type':'key','key':'TAB','modifiers':[]}, {'type':'text','text':'test'}]
+        for action in actions:
+            adapter.execute(action)
+            adapter.desktop_bridge.execute.assert_called_with(action)
+        adapter.send.assert_not_called()
+        adapter.desktop_bridge.execute.reset_mock()
+        adapter.desktop_bridge.execute.side_effect=OSError('Rejected by secure desktop')
+        with self.assertRaises(OSError):adapter.execute(actions[1])
+        adapter.desktop_bridge.execute.assert_called_once_with(actions[1])
+        adapter.send.assert_not_called()  # No replay on the normal desktop.
+        for action in [{'type':'zoom','steps':1},{'type':'task_view'}]:
+            with self.assertRaises(RuntimeError):adapter.execute(action)
+
     def test_lock_uses_api_not_keyboard_shortcut(self):
         adapter=WindowsInput.__new__(WindowsInput)
         adapter.default_desktop=lambda:False
