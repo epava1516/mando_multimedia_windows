@@ -23,7 +23,7 @@ from windows_clipboard import validate_text
 
 from diagnostics import Events, desktop_status, advanced_status
 
-VERSION = "0.5.0-alpha.15"
+VERSION = "0.5.0-alpha.16"
 MAX_FRAME = 8192
 PORT = 1979
 

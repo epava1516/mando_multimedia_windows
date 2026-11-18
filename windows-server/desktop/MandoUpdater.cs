@@ -14,17 +14,46 @@ using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
+[assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8")]
+
 internal sealed class MandoUpdater : Form {
     const string Feed="https://mando.sherlockhomeless.net/updates.json";
     const string PublicKey=@"<RSAKeyValue><Modulus>vWjJQydIT+2Vvnm15lhMrZhkfevP5+lUyR6XRyRpZgQeP4uZ0xZ0+peY8P10RqHjGr4WkSm9F7byFY9VHzbLUc9Fpf9at33GDOA3aswUnj0nVcJWKfXNAQGToAYCo1ApFdi6WUkCgjFfcNTxbUXNeaUvumsds2tMLuj5WfSkm/cAzJdsyt/5L6FBCsdITloHDHFepksNkJq+ZZc9bjmhOk/J4WfTr25h4ko89PvE4DxHTYXenYhjQYRHlCG9yOUD38voNLsdIXapFRf7DjwmKNPSaFVl0pstWgzmITC3T8UQSCkTtxqKz1X5Z0xGRk5hsCW8cAEo3ZFX6N7q2l27BYD/b+Wo0o+uuOchVErOVpdKM9UFdYFIRX/mErTL/+7tpGVSJLVnZZcTOtMT/AnYRQikokQ5AcWYpLBvwnleMx5Nt/zc3aWI4WiXbXNIDSvCmR7M3DrjfsMaxc2QMWMFUsEmpTGr0xRG7e0hqHkjnL4xTqeRuKZGKc/csSRRIYnv</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
     const string Fixture=@"{""payload"":""eyJ2ZXJzaW9uIjoiMC41LjAtYWxwaGEuMTQiLCJ1cmwiOiJodHRwczovL21hbmRvLnNoZXJsb2NraG9tZWxlc3MubmV0L2Rvd25sb2Fkcy9NYW5kb1NldHVwLTAuNS4wLWFscGhhLjE0LmV4ZSIsImJ5dGVzIjo5LCJzaGEyNTYiOiI3OGE4MzQwM2ZjYjNiN2EzZmMxZGYxYWJiZWI2ZGZhZDY1MmMwMWU1NjFlZmQ5YmE2OTg1ZjdjNzVjNDQyNDVhIiwiaXNzdWVkIjoiMjAyNi0xMS0xN1QyMzo1MDowM1oiLCJleHBpcmVzIjoiMjAyNy0wMi0xNVQyMzo1MDowM1oifQ=="",""signature"":""DwUXtgHYfMAycId58SpWCHdFxf3RtnWmaVu/0+OuGq83Z3bJE7/enb8GvvJOInO39HNp2COQLqKHoPwq85/MlG6SjkouY3XLnVJWB2VblowlF55BhfZDqFa+Q13J6dsVXCMq6Qy3QNoePUVjYd6txC8yBqL9NpAhJ5B+8cqpaR5wpUkUHAgDCdDKbOMkJDHSaUM+/RYBeOtlNIS3VVu0JoyQTu+yZyJMbF9IJ2eDuXI3Lv4P2x2JJw8n9F7Euxzh1TRlMHeTnE8xspslMgDt4aIy3wrmm2lmDsKB4ppvsgko8dodzU9M/tSH9wNKGivVQzoVb+MFNwG1cUXzFh7HQ8H0jTiGnJ7nc23d56c6OtjFg7+pNNk1k7Gbk8J6B4V1GxAHUwwWpvDCLSb5ntJaEQMcwsx5q2z53Wh9U5ffvcHaJ87QhcOvABlzs+iv8NyvmOigin0GmaZvtKxmLoHNxpWdQx7l6/83UGMsqVQZJINn3IyDg2xv+4bv6Z1NAUOT""}";
-    static readonly Version Current=new Version(0,5,0,15);
+    static readonly Version Current=new Version(0,5,0,16);
     static readonly JavaScriptSerializer Json=new JavaScriptSerializer{MaxJsonLength=8192,RecursionLimit=8};
     static readonly string InstallRoot=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Mando");
     readonly Label label=new Label{Dock=DockStyle.Fill,Text="Buscando actualizaciones…",Padding=new Padding(20),AutoSize=false};
     readonly ProgressBar progress=new ProgressBar{Dock=DockStyle.Bottom,Height=18,Style=ProgressBarStyle.Marquee};
     volatile bool busy=true,cancelled,installing;
     HttpWebRequest request;
+    string phase="MANIFEST";
+    readonly bool networkTest;
+    static void ConfigureTransport() {
+        // Follow Windows TLS policy even for an executable compiled by Add-Type.
+        AppContext.SetSwitch("Switch.System.Net.DontEnableSchUseStrongCrypto",false);
+        AppContext.SetSwitch("Switch.System.Net.DontEnableSystemDefaultTlsVersions",false);
+        ServicePointManager.SecurityProtocol=(SecurityProtocolType)0; // SystemDefault
+    }
+    static string FailureCode(string phase,Exception error) {
+        string cause="IO";
+        var web=error as WebException;
+        if(web!=null) {
+            switch(web.Status) {
+                case WebExceptionStatus.TrustFailure:case WebExceptionStatus.SecureChannelFailure:cause="TLS";break;
+                case WebExceptionStatus.NameResolutionFailure:cause="DNS";break;
+                case WebExceptionStatus.ProxyNameResolutionFailure:cause="PROXY-DNS";break;
+                case WebExceptionStatus.Timeout:cause="TIMEOUT";break;
+                default:
+                    var response=web.Response as HttpWebResponse;
+                    cause=response==null?"NETWORK":"HTTP-"+((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture);break;
+            }
+        } else if(error is CryptographicException)cause="SIGNATURE";
+        else if(error is UnauthorizedAccessException)cause="ACCESS";
+        else if(error is FormatException||error is ArgumentException)cause="FORMAT";
+        else if(error is System.ComponentModel.Win32Exception)cause="WINDOWS";
+        return "UPD-"+phase+"-"+cause;
+    }
     sealed class Release {public string VersionText,Url,Hash;public Version Version;public int Bytes;}
     static string Field(Dictionary<string,object> data,string key) {object value;return data.TryGetValue(key,out value)?value as string:null;}
     static Release Verify(string envelope,bool checkClock=true) {
@@ -58,27 +87,49 @@ internal sealed class MandoUpdater : Form {
         file.Position=0;
         using(var sha=SHA256.Create())return BitConverter.ToString(sha.ComputeHash(file)).Replace("-","").ToLowerInvariant()==release.Hash;
     }
-    public MandoUpdater() {
+    public MandoUpdater(bool test=false) {
+        networkTest=test;
         Text="Actualizar Mando";Size=new Size(460,180);StartPosition=FormStartPosition.CenterScreen;
         Font=new Font("Segoe UI",10);Controls.Add(label);Controls.Add(progress);
         FormClosing+=(s,e)=>{if(busy&&installing){e.Cancel=true;label.Text="Instalando. Mando se reiniciará al terminar.";return;}if(busy){cancelled=true;if(request!=null)request.Abort();e.Cancel=true;label.Text="Cancelando…";}};
-        Shown+=async(s,e)=>await RunUpdate();
+        Shown+=async(s,e)=>{if(networkTest)await RunNetworkTest();else await RunUpdate();};
     }
-    void Status(string text) {if(!IsDisposed)BeginInvoke((Action)(()=>label.Text=text));}
     async Task Download(string url,Stream output,int limit) {
-        request=(HttpWebRequest)WebRequest.Create(url);request.AllowAutoRedirect=false;request.Timeout=20000;request.ReadWriteTimeout=20000;
-        request.UserAgent="Mando-Updater/0.5.0";
-        using(var response=(HttpWebResponse)await request.GetResponseAsync()) {
-            if(response.StatusCode!=HttpStatusCode.OK||response.ContentLength>limit)throw new IOException();
-            using(var input=response.GetResponseStream()) {
-                byte[] buffer=new byte[65536];int total=0,read;
-                while((read=await input.ReadAsync(buffer,0,buffer.Length))>0) {
-                    if(cancelled)throw new OperationCanceledException();total+=read;if(total>limit)throw new IOException();
-                    await output.WriteAsync(buffer,0,read);
+        var activeRequest=(HttpWebRequest)WebRequest.Create(url);
+        request=activeRequest;activeRequest.AllowAutoRedirect=false;activeRequest.Timeout=20000;activeRequest.ReadWriteTimeout=20000;
+        activeRequest.UserAgent="Mando-Updater/0.5.0-alpha.16";
+        // Async HttpWebRequest does not honor Timeout. Bound the entire transfer.
+        using(var timeout=new System.Threading.Timer(_=>activeRequest.Abort(),null,60000,System.Threading.Timeout.Infinite)) {
+            using(var response=(HttpWebResponse)await activeRequest.GetResponseAsync()) {
+                if(response.StatusCode!=HttpStatusCode.OK||response.ContentLength>limit)throw new IOException();
+                using(var input=response.GetResponseStream()) {
+                    byte[] buffer=new byte[65536];int total=0,read;
+                    while((read=await input.ReadAsync(buffer,0,buffer.Length))>0) {
+                        if(cancelled)throw new OperationCanceledException();total+=read;if(total>limit)throw new IOException();
+                        await output.WriteAsync(buffer,0,read);
+                    }
                 }
             }
         }
         request=null;
+    }
+    // Exercises the exact production HTTPS/download/signature/hash path, without
+    // prompts, installation, elevated processes or server shutdown. CI only.
+    async Task RunNetworkTest() {
+        try {
+            Release release;
+            using(var memory=new MemoryStream()) {
+                await Download(Feed,memory,8192);phase="MANIFEST-VERIFY";
+                release=Verify(new UTF8Encoding(false,true).GetString(memory.ToArray()));
+            }
+            phase="DOWNLOAD";
+            using(var memory=new MemoryStream()) {
+                await Download(release.Url,memory,release.Bytes);phase="HASH";
+                if(!Matches(memory,release))throw new CryptographicException();
+            }
+            Environment.ExitCode=0;
+        } catch(Exception) {Environment.ExitCode=phase=="MANIFEST"?21:phase=="MANIFEST-VERIFY"?22:phase=="DOWNLOAD"?23:24;}
+        finally {busy=false;Close();}
     }
     static void RestartTray() {
         string tray=Path.Combine(InstallRoot,"MandoTray.exe");
@@ -90,31 +141,36 @@ internal sealed class MandoUpdater : Form {
             Release release;
             using(var memory=new MemoryStream()) {
                 await Download(Feed,memory,8192);
+                phase="MANIFEST-VERIFY";
                 release=Verify(new UTF8Encoding(false,true).GetString(memory.ToArray()));
             }
             if(release.Version<=Current){label.Text="Mando ya está actualizado.";return;}
             if(cancelled)throw new OperationCanceledException();
             if(MessageBox.Show("Hay una versión "+release.VersionText+".\nSe instalará y reiniciará Mando. Habrá un corte breve de conexión y Windows puede pedir autorización UAC.\n¿Actualizar ahora?","Actualizar Mando",MessageBoxButtons.YesNo,MessageBoxIcon.Information)!=DialogResult.Yes){label.Text="Actualización cancelada.";return;}
+            phase="DOWNLOAD";
             label.Text="Descargando y verificando el instalador…";
             installer=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"MandoSetup.exe");
             using(var output=new FileStream(installer,FileMode.CreateNew,FileAccess.Write,FileShare.None))await Download(release.Url,output,release.Bytes);
             // Keep this handle open through UAC/install so the verified executable cannot be replaced.
             using(var locked=new FileStream(installer,FileMode.Open,FileAccess.Read,FileShare.Read)) {
+                phase="HASH";
                 if(!Matches(locked,release))throw new CryptographicException();
                 if(cancelled)throw new OperationCanceledException();
                 label.Text="Autoriza Windows si lo solicita. Mando volverá a la bandeja al terminar.";
+                phase="INSTALL";
                 using(var process=Process.Start(new ProcessStartInfo(installer,"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS"){UseShellExecute=true,Verb="runas",WorkingDirectory=InstallRoot})) {
                     installing=true;
                     await Task.Run(()=>process.WaitForExit());
+                    phase="RESTART";
                     RestartTray();
-                    if(process.ExitCode!=0)throw new IOException();
+                    if(process.ExitCode!=0){phase="INSTALL-EXIT";throw new IOException();}
                 }
             }
             label.Text="Actualización completada. Mando está de nuevo en la bandeja.";
         } catch(System.ComponentModel.Win32Exception error) {
-            label.Text=error.NativeErrorCode==1223?"Actualización cancelada en Windows. El servidor actual sigue disponible.":"No se pudo iniciar la actualización. Abre Mando desde Inicio.";
+            label.Text=error.NativeErrorCode==1223?"Actualización cancelada en Windows. El servidor actual sigue disponible.":FailureCode(phase,error)+". No se pudo iniciar o reiniciar Mando. Abre Mando desde Inicio.";
         } catch(OperationCanceledException) {label.Text="Actualización cancelada.";}
-        catch(Exception) {label.Text=cancelled?"Actualización cancelada.":"No se pudo verificar o completar la actualización. No se instalará un archivo sin verificar. Abre Mando desde Inicio si fuera necesario.";}
+        catch(Exception error) {label.Text=cancelled?"Actualización cancelada.":FailureCode(phase,error)+". No se pudo completar esta fase. No se ejecutará un instalador sin verificar. Abre Mando desde Inicio si fuera necesario.";}
         finally {
             busy=false;progress.Style=ProgressBarStyle.Blocks;progress.Value=100;
             if(installer!=null)try{File.Delete(installer);}catch{}
@@ -122,6 +178,9 @@ internal sealed class MandoUpdater : Form {
         }
     }
     static int SelfTest() {
+        if(ServicePointManager.SecurityProtocol!=(SecurityProtocolType)0)return 5;
+        if(FailureCode("MANIFEST",new WebException("private",WebExceptionStatus.SecureChannelFailure))!="UPD-MANIFEST-TLS")return 6;
+        if(FailureCode("HASH",new CryptographicException("private"))!="UPD-HASH-SIGNATURE")return 7;
         var release=Verify(Fixture,false);
         if(release.VersionText!="0.5.0-alpha.14")return 1;
         using(var body=new MemoryStream(Encoding.ASCII.GetBytes("MZfixture")))if(!Matches(body,release))return 2;
@@ -132,7 +191,13 @@ internal sealed class MandoUpdater : Form {
         return 0;
     }
     [STAThread] static int Main(string[] args) {
+        ConfigureTransport();
         if(args.Length==1&&args[0]=="--self-test")return SelfTest();
+        if(args.Length==1&&args[0]=="--network-self-test") {
+            Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+            using(var form=new MandoUpdater(true)){Application.Run(form);}
+            return Environment.ExitCode;
+        }
         if(args.Length!=0)return 2;
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
         if(new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator)){MessageBox.Show("Abre el actualizador desde Mando con tu cuenta normal.");return 1;}

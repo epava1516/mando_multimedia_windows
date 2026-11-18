@@ -62,9 +62,16 @@ jobs:
           python -m PyInstaller --clean --noconfirm --onefile --name MandoServer windows-server/server.py
           if ($LASTEXITCODE -ne 0) { throw 'Standalone server build failed' }
           Add-Type -TypeDefinition (Get-Content windows-server/desktop/MandoTray.cs -Raw -Encoding UTF8) -Language CSharp -ReferencedAssemblies 'System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.ServiceProcess.dll' -OutputAssembly "$pwd/dist/MandoTray.exe" -OutputType WindowsApplication
+          # Reproduce the legacy compiled EXE TLS defaults against the fixed feed.
+          $legacySource = 'using System; using System.Net; class LegacyTlsProbe { static int Main() { try { using(var r=WebRequest.Create("https://mando.sherlockhomeless.net/updates.json").GetResponse()){return 0;} } catch(WebException e){return 100+(int)e.Status;} } }'
+          Add-Type -TypeDefinition $legacySource -Language CSharp -ReferencedAssemblies 'System.dll' -OutputAssembly "$pwd/build/LegacyTlsProbe.exe" -OutputType WindowsApplication
+          $legacy = Start-Process -FilePath "$pwd/build/LegacyTlsProbe.exe" -Wait -PassThru
+          Write-Host ('Legacy compiled TLS probe exit code: '+$legacy.ExitCode+' (110 = SecureChannelFailure)')
           Add-Type -TypeDefinition (Get-Content windows-server/desktop/MandoUpdater.cs -Raw -Encoding UTF8) -Language CSharp -ReferencedAssemblies 'System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Web.Extensions.dll','System.Security.dll' -OutputAssembly "$pwd/dist/MandoUpdater.exe" -OutputType WindowsApplication
           $updater = Start-Process -FilePath "$pwd/dist/MandoUpdater.exe" -ArgumentList '--self-test' -Wait -PassThru
           if ($updater.ExitCode -ne 0) { throw 'Updater signed manifest/hash/tamper self-test failed' }
+          $updater = Start-Process -FilePath "$pwd/dist/MandoUpdater.exe" -ArgumentList '--network-self-test' -Wait -PassThru
+          if ($updater.ExitCode -ne 0) { throw ('Updater real HTTPS/manifest/EXE test failed: '+$updater.ExitCode) }
           $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--self-test' -Wait -PassThru
           if ($tray.ExitCode -ne 0) { throw 'Tray self-test failed' }
           $tray = Start-Process -FilePath "$pwd/dist/MandoTray.exe" -ArgumentList '--smoke-test' -Wait -PassThru
@@ -94,7 +101,7 @@ jobs:
 
           & "$compilerDir/ISCC.exe" ("/DPayloadDir="+$payload) windows-server/installer/MandoSetup.iss
           if ($LASTEXITCODE -ne 0) { throw 'Installer compile failed' }
-          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.15.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.16.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw 'Installer failed' }
           if ((Get-Service MandoDesktopBroker).Status -ne 'Running') { throw 'Installed service is not running' }
           if (-not (Test-Path "$env:ProgramFiles/Mando/MandoTray.exe")) { throw 'Tray launcher not installed' }
@@ -105,7 +112,7 @@ jobs:
           if ((Get-ItemProperty -LiteralPath $startupKey).MandoServer -ne $expected) { throw 'Per-user startup not configured' }
           $firewall = Get-NetFirewallRule -Name Mando-Server-TCP,Mando-Discovery-UDP
           if (@($firewall).Count -ne 2 -or ($firewall | Where-Object {$_.Profile -ne 'Private'})) { throw 'Private firewall rules missing' }
-          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.15.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          $setup = Start-Process -FilePath "$pwd/dist/MandoSetup-0.5.0-alpha.16.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw 'Installer upgrade failed' }
           $remove = Start-Process -FilePath "$env:ProgramFiles/Mando/unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($remove.ExitCode -ne 0 -or (Get-Service MandoDesktopBroker -ErrorAction SilentlyContinue)) { throw 'Installer uninstall failed' }
@@ -118,7 +125,7 @@ jobs:
             dist/MandoServer.exe
             dist/MandoTray.exe
             dist/MandoUpdater.exe
-            dist/MandoSetup-0.5.0-alpha.15.exe
+            dist/MandoSetup-0.5.0-alpha.16.exe
             build/MandoDesktopBroker.exe
             build/MandoTouchZoom.exe
           retention-days: 7

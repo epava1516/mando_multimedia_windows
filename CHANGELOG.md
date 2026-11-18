@@ -178,3 +178,9 @@ Primera publicación estable, confirmada por el usuario.
 - Entrada manual en UAC sobre el escritorio seguro, sin exigir que la sesión esté bloqueada.
 - El worker comprueba el escritorio Winlogon, consola activa y cuenta autorizada antes de cada lote. Mantiene la autenticación TLS, el ACL local y las identidades de ambos extremos IPC.
 - Rechazo cerrado ante cambios de cuenta, sesión o escritorio; sin repetición de acciones ni aceptación automática de UAC. Pruebas de política nativas y de encaminamiento sin reintentos.
+
+## Windows Server 0.5.0-alpha.16
+
+- El actualizador selecciona explícitamente TLS del sistema y declara .NET Framework 4.8 para evitar las opciones TLS heredadas de ejecutables compilados con Add-Type. No modifica certificados, políticas de Windows ni validación de firma.
+- Códigos UPD por fase y tipo de fallo, sin contenido de excepciones o rutas locales. Límite de tiempo real para transferencias asíncronas.
+- Prueba Windows con el EXE real que descarga el manifiesto HTTPS y el instalador publicado y verifica firma, tamaño y hash; nunca ejecuta el instalador en esa prueba.

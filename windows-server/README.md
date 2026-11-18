@@ -149,3 +149,9 @@ El worker en `WinSta0\Winlogon` permite ratón y teclado manuales también cuand
 No cambia UAC ni sus políticas, no acepta consentimientos automáticamente y no expone comandos, ejecutables o nombres de escritorio elegibles por el móvil. Solo un móvil emparejado puede enviar las acciones habituales. No reintenta ni reproduce una acción rechazada al volver al escritorio normal. El portapapeles sigue deshabilitado en el escritorio seguro. Primer inicio de sesión, RDP y ventanas elevadas con UAC configurado fuera del escritorio seguro no están cubiertos.
 
 Las pruebas nativas incluyen una matriz de permisos (Winlogon, Default, escritorio desconocido, otra cuenta, otra sesión y ausencia de consola), además del protocolo TLS y la instalación. La interacción con un UAC real requiere validación en un Windows 11 físico después de actualizar; CI no simula el consentimiento.
+
+## Transporte del actualizador (alpha.16)
+
+El EXE declara .NET Framework 4.8 y configura `ServicePointManager.SecurityProtocol` a SystemDefault antes de consultar el manifiesto. Conserva la validación HTTPS de Windows y la firma fijada. Se evita depender del comportamiento TLS heredado del ejecutable generado por Add-Type; no requiere cambiar el registro ni políticas del PC. Referencia: https://learn.microsoft.com/en-us/dotnet/framework/network-programming/tls .
+
+Los fallos muestran códigos fijos como `UPD-MANIFEST-TLS`, `UPD-MANIFEST-DNS`, `UPD-MANIFEST-VERIFY-SIGNATURE`, `UPD-DOWNLOAD-HTTP-429`, `UPD-HASH-SIGNATURE` o `UPD-INSTALL-EXIT-IO`. Nunca incluyen excepciones completas ni datos locales. La prueba `--network-self-test` utiliza el mismo transporte y verificador contra el manifiesto y EXE públicos, sin instalarlos, y devuelve 21/22/23/24 para fallo de consulta/firma/descarga/hash. CI también informa del resultado de un ejecutable compilado con los valores TLS heredados para reproducir el problema.

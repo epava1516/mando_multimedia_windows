@@ -4,8 +4,8 @@
 [Setup]
 AppId={{DF9BB8D5-33B6-45C9-95D7-AC12D3485D1D}
 AppName=Mando Server
-AppVersion=0.5.0-alpha.15
-VersionInfoVersion=0.5.0.15
+AppVersion=0.5.0-alpha.16
+VersionInfoVersion=0.5.0.16
 AppPublisher=Mando
 DefaultDirName={autopf}\Mando
 DefaultGroupName=Mando
@@ -16,7 +16,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 OutputDir=..\..\dist
-OutputBaseFilename=MandoSetup-0.5.0-alpha.15
+OutputBaseFilename=MandoSetup-0.5.0-alpha.16
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
