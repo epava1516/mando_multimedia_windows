@@ -390,7 +390,7 @@ public final class MainActivity extends Activity {
                 catch(Exception error) {
                     runOnUiThread(() -> {
                         if(!destroyed && resume.current(stamp)) {
-                            showKeyboard(false);
+                            if (!(error instanceof OwnClient.ActionRejected)) showKeyboard(false);
                             web.evaluateJavascript("window.mandoKeyboardError("+JSONObject.quote(safeMessage(error))+")",null);
                         }
                     });
@@ -622,6 +622,8 @@ public final class MainActivity extends Activity {
                     } catch (Exception e) {
                         try {
                             if(!resume.current(stamp) && ("/api/action".equals(requestPath)||"/api/lock".equals(requestPath)||"/api/keyboard".equals(requestPath)||"/api/ir/send".equals(requestPath)))result.put("expired",true);
+                            else if (e instanceof OwnClient.ActionRejected && client.isConnected()
+                                    && "/api/action".equals(requestPath)) result.put("rejected",safeMessage(e));
                             else result.put("error",safeMessage(e));
                         } catch(Exception ignored){ }
                     }

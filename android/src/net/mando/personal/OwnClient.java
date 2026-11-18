@@ -20,6 +20,13 @@ final class OwnClient implements InputClient {
     private DataInputStream input;
     private DataOutputStream output;
     private int sequence;
+    private boolean rejectionReported;
+
+    static final class ActionRejected extends IOException {
+        ActionRejected() {
+            super("Windows no ha aceptado la acción. Se ha descartado.");
+        }
+    }
     private JSONObject capabilities = new JSONObject();
 
     public boolean isConnected() {Socket current=socket;return ready && current!=null && !current.isClosed();}
@@ -88,7 +95,7 @@ final class OwnClient implements InputClient {
                 }
                 throw new IOException("La autorización ya no es válida. Escanea el QR del PC para volver a autorizarlo");
             }
-            capabilities=reply.getJSONObject("capabilities");sequence=0;
+            capabilities=reply.getJSONObject("capabilities");sequence=0;rejectionReported=false;
             if(socket!=tls)throw new IOException("Conexión cancelada");
             if(reply.has("device")) {
                 JSONObject device=reply.getJSONObject("device");
@@ -119,16 +126,22 @@ final class OwnClient implements InputClient {
             write(request);JSONObject reply=read();
             if(reply.optInt("id")!=id)throw new IOException("Secuencia propia inválida");
             if(!reply.optBoolean("ok")) {
-                if("action".equals(operation)&&AdbDiagnostics.enabled()) {
-                    AdbDiagnostics.event("ACTION_REJECTED");
-                    // The server accepts read-only diagnostics after rejecting input.
-                    // Query once before closing. Never replay the rejected action.
-                    try {AdbDiagnostics.server(diagnostics(true));}
-                    catch(Exception failure){AdbDiagnostics.event("CAPTURE_FAILED");}
+                if ("action".equals(operation) &&
+                        "Windows no ha aceptado la accion; no se repetira".equals(reply.opt("error"))) {
+                    if (!rejectionReported && AdbDiagnostics.enabled()) {
+                        rejectionReported = true;
+                        AdbDiagnostics.event("ACTION_REJECTED");
+                        try { AdbDiagnostics.server(diagnostics(true)); }
+                        catch (Exception failure) { AdbDiagnostics.event("CAPTURE_FAILED"); }
+                    }
+                    throw new ActionRejected();
                 }
                 throw new IOException("El servidor propio no ha aceptado la acción; no se repetirá");
             }
+            if ("action".equals(operation)) rejectionReported = false;
             return reply;
+        } catch (ActionRejected rejected) {
+            throw rejected;
         }catch(Exception error){AdbDiagnostics.event("REQUEST_FAILED");close();throw error;}
     }
     JSONObject diagnostics(boolean advanced) throws Exception {

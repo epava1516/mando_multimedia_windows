@@ -132,6 +132,9 @@ public final class MediaControlService extends Service {
             if(finished || !retained || stamp!=generation || !CLIENT.isConnected())return;
             if(android.os.SystemClock.elapsedRealtime()-requested>1500)return;
             try {operation.run();}
+            catch (OwnClient.ActionRejected rejected) {
+                if (!CLIENT.isConnected()) handler.post(() -> {if(stamp==generation)finish();});
+            }
             catch(Exception error) {handler.post(() -> {if(stamp==generation)finish();});}
         });} catch(java.util.concurrent.RejectedExecutionException busy) { /* discard, never replay */ }
     }

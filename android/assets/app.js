@@ -204,6 +204,7 @@ $('scan').addEventListener('click', async () => {
   } catch (error) {status(error.message, true);}
   finally {$('scan').disabled = false; $('pair-button').disabled = false;}
 });
+let inputRejected = false;
 function action(data, stillValid = () => true) {
   if (!paired || queued >= 24) return Promise.reject(new Error('Espera a que termine el envío al PC'));
   queued++;
@@ -213,6 +214,15 @@ function action(data, stillValid = () => true) {
     if (!paired) throw new Error('Vuelve a vincular el PC');
     return api('/api/action', data).then(result => {
       if (result.expired&&stamp===uiGeneration&&!suspended) status('El gesto ha caducado. Vuelve a intentarlo.', true);
+      if (stamp === uiGeneration && !suspended) {
+        if (result.rejected) {
+          inputRejected = true;
+          status(result.rejected, true);
+        } else if (result.ok && inputRejected) {
+          inputRejected = false;
+          status('PC conectado.');
+        }
+      }
       if(result.unsupported&&stamp===uiGeneration&&!suspended)status(result.unsupported,true);
       return result;
     });
