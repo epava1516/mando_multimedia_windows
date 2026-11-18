@@ -1,6 +1,6 @@
 MANDO — INSTALADOR WINDOWS
 
-1. Descarga MandoSetup-0.5.0-alpha.16.exe y abrelo con doble clic.
+1. Descarga MandoSetup-0.5.0-alpha.17.exe y abrelo con doble clic.
 2. Acepta el permiso de administrador para instalar el servicio local de bloqueo.
 3. Al terminar, cierra Remote Mouse y abre Mando Server desde Inicio con tu cuenta normal.
 4. La IP se detecta automaticamente. Si hay varias redes, selecciona tu Wi-Fi o Ethernet de casa.
@@ -30,3 +30,6 @@ En el panel o bandeja: Buscar actualizacion. Descarga y verifica el instalador f
 
 ACTUALIZADOR (alpha.16)
 Corrige la negociacion TLS del actualizador. Si alpha.14/15 falla antes de ofrecer la version, descarga e instala alpha.16 una vez desde el navegador. Conserva el emparejamiento. Los fallos posteriores muestran codigo UPD por fase para diagnosticar conexion, firma, descarga o instalacion.
+
+CANAL LOCAL (alpha.17)
+La apertura del canal espera si esta ocupado (error 231), dentro del plazo maximo y antes de enviar entrada; no se repiten acciones. La APK alpha.27 permite guardar informes tecnicos desde Ajustes → Diagnostico por ADB. La entrada UAC real sigue pendiente de validacion en el PC.
