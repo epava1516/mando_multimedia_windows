@@ -1,6 +1,6 @@
 MANDO — INSTALADOR WINDOWS
 
-1. Descarga MandoSetup-0.5.0-alpha.12.exe y abrelo con doble clic.
+1. Descarga MandoSetup-0.5.0-alpha.15.exe y abrelo con doble clic.
 2. Acepta el permiso de administrador para instalar el servicio local de bloqueo.
 3. Al terminar, cierra Remote Mouse y abre Mando Server desde Inicio con tu cuenta normal.
 4. La IP se detecta automaticamente. Si hay varias redes, selecciona tu Wi-Fi o Ethernet de casa.
@@ -24,3 +24,6 @@ El fallo del componente de bloqueo ya no impide arrancar ni conectar al escritor
 
 PC RECORDADO Y CAMBIO DE IP
 El QR contiene IP, puerto, identidad TLS y PIN temporal. La app conserva la autorizacion. Si el router cambia la IP: Buscar en Wi-Fi → elige el PC → Conectar. Se comprobara su identidad guardada antes de enviar el token. No necesitas otro QR para el mismo PC mientras su autorizacion siga valida. Otro QR del mismo PC tampoco crea dispositivos duplicados. Borrar datos, revocar dispositivos o cambiar la identidad del servidor puede requerir otro QR.
+
+ACTUALIZACION Y UAC (alpha.15)
+En el panel o bandeja: Buscar actualizacion. Descarga y verifica el instalador firmado en el manifiesto y vuelve a abrir Mando tras instalar. Habra un corte breve y Windows puede pedir UAC. El control manual de UAC se incluye desde alpha.15 y requiere prueba en tu PC; al actualizar desde alpha.14 acepta la elevacion en el PC. No se cambian las politicas de UAC ni se aceptan solicitudes automaticamente.

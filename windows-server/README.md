@@ -1,12 +1,12 @@
-# Servidor propio completo — experimental 0.5.0-alpha.12
+# Servidor propio completo — experimental 0.5.0-alpha.15
 
-Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK alfa conserva la opción del servidor oficial.
+Paquete independiente de Remote Mouse para Windows 11. Incluye el servidor de red, zoom visual de Firefox, bloqueo directo y el servicio local para enviar ratón/teclado a una sesión ya iniciada y bloqueada. La APK actual utiliza siempre el servidor propio.
 
 **Estado:** compilación e instalación/desinstalación del servicio, identidad del pipe y pruebas del protocolo pasan en un runner Windows. La entrada real con la pantalla bloqueada y el zoom visual necesitan confirmación en el PC. No es todavía una versión estable.
 
 ## Instalador EXE (recomendado)
 
-Descarga `MandoSetup-0.5.0-alpha.12.exe` desde https://www.sherlockhomeless.net/apps/mando/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
+Descarga `MandoSetup-0.5.0-alpha.15.exe` desde https://mando.sherlockhomeless.net/ y ábrelo con doble clic. Solicita elevación para configurar el servicio, instala los archivos en Program Files y añade **Mando → Mando Server** al menú Inicio. No requiere Python ni comandos de PowerShell.
 
 Cierra Remote Mouse antes de iniciar Mando Server desde Inicio con tu cuenta normal, la IP se detecta automáticamente. Si hay varias redes, selecciona la de casa en la ventana. En Android pulsa Escanear QR del PC, apunta al QR de la ventana Windows y pulsa Conectar. El servidor queda en la bandeja al cerrar la ventana. Doble clic abre el código; Salir detiene el servidor. Arranca automáticamente, oculto en la bandeja, al iniciar la sesión de la cuenta autorizada.
 
@@ -30,7 +30,7 @@ La elevación se usa una vez para instalar el servicio y los ejecutables protegi
 4. Instala la APK **0.5.0-alpha.2 o posterior**. En Mando selecciona **Mando propio (experimental)** y pega una vez el código `mando1:...` que muestra el PC. El código contiene dirección, puerto, huella del certificado y PIN temporal; no lo compartas fuera de tus dispositivos.
 5. Después del primer emparejamiento puedes salir y volver a abrir Mando: selecciona el servidor propio y conecta dejando vacío el campo de código. La autorización queda cifrada con Android Keystore. El transporte se cierra al salir; alpha.3 lo recupera automáticamente si vuelves antes de 20 minutos. Nunca se repiten acciones. Desconectar cancela esa recuperación.
 
-El servicio local arranca con Windows, pero el servidor de red se ejecuta en la sesión del usuario y debe estar abierto antes de bloquear. No se ha implementado acceso antes del primer inicio de sesión o tras cerrar sesión, ni control del escritorio UAC, sesiones RDP o de otra cuenta.
+El servicio local arranca con Windows, pero el servidor de red se ejecuta en la sesión del usuario y debe estar abierto antes de bloquear. No se ha implementado acceso antes del primer inicio de sesión o tras cerrar sesión, ni sesiones RDP o de otra cuenta. Desde alpha.15 se admite entrada manual en UAC sobre el escritorio seguro de la cuenta autorizada.
 
 ## Controles incluidos
 
@@ -128,9 +128,9 @@ Solo se conserva un PC autorizado en esta versión. Reinstalar Windows, borrar l
 
 ## Diagnóstico desde Android (alpha.14)
 
-Instalador actual: https://mando.sherlockhomeless.net/downloads/MandoSetup-0.5.0-alpha.14.exe . Ejecutarlo en Windows para actualizar backend y broker manteniendo la identidad y emparejamientos. APK Android alpha.25: Ajustes → Diagnóstico del servidor → Actualizar / Copiar. Acceso mediante TLS autorizado y eventos acotados desde el arranque; no acceso a archivos arbitrarios ni logs históricos del sistema. El panel no inyecta entrada, no arranca el worker para probarlo y no corrige por sí solo el fallo de bloqueo/UAC. «Diagnóstico avanzado» compara localmente la cuenta y sesión autorizadas, consulta el servicio y abre un canal nuevo con un sondeo de estado limitado a dos segundos; informa de fase, código Win32 y bytes sin exportar nombres de cuenta, SID ni contenido escrito.
+Instalador actual: https://mando.sherlockhomeless.net/downloads/MandoSetup-0.5.0-alpha.15.exe . Ejecutarlo en Windows para actualizar backend y broker manteniendo la identidad y emparejamientos. APK Android alpha.25: Ajustes → Diagnóstico del servidor → Actualizar / Copiar. Acceso mediante TLS autorizado y eventos acotados desde el arranque; no acceso a archivos arbitrarios ni logs históricos del sistema. El panel no inyecta entrada, no arranca el worker para probarlo y no corrige por sí solo el fallo de bloqueo/UAC. «Diagnóstico avanzado» compara localmente la cuenta y sesión autorizadas, consulta el servicio y abre un canal nuevo con un sondeo de estado limitado a dos segundos; informa de fase, código Win32 y bytes sin exportar nombres de cuenta, SID ni contenido escrito.
 
-Windows CI 44203662523 compiló broker, tray, servidor y EXE y pasó los tests de protocolo, portapapeles nativo, identidad IPC, servidor empaquetado, instalación, actualización y desinstalación: https://github.com/epava1516/mando_multimedia_windows/actions/runs/44203662523 . Esto no sustituye validar el escritorio bloqueado en el PC físico.
+Windows CI 44205518646 compiló broker, tray, servidor y EXE y pasó los tests de protocolo, portapapeles nativo, identidad IPC, servidor empaquetado, instalación, actualización y desinstalación: https://github.com/epava1516/mando_multimedia_windows/actions/runs/44205518646 . Esto no sustituye validar el escritorio bloqueado en el PC físico.
 
 ## Apertura al terminar la instalación (alpha.14)
 
