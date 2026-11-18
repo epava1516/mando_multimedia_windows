@@ -22,13 +22,15 @@ class DesktopBridge:
         self.stage='PIPE_OPEN'
         self.handle=None
         self.last_probe={}
-        self.started=time.monotonic();self.trace=[]
+        self.started=time.monotonic();self.trace=[];self.deadline=self.started+.4
         self.peer_pid=None;self.pid_matches=None;self.written=0;self.read_bytes=0
         self.kernel=C.WinDLL('kernel32',use_last_error=True)
         self.security=C.WinDLL('advapi32',use_last_error=True)
         self.kernel.CreateFileW.argtypes=[W.LPCWSTR,W.DWORD,W.DWORD,C.c_void_p,W.DWORD,W.DWORD,W.HANDLE]
         self.kernel.CreateFileW.restype=W.HANDLE
         self.kernel.CloseHandle.argtypes=[W.HANDLE]
+        self.kernel.WaitNamedPipeW.argtypes=[W.LPCWSTR,W.DWORD]
+        self.kernel.WaitNamedPipeW.restype=W.BOOL
         self.kernel.GetNamedPipeServerProcessId.argtypes=[W.HANDLE,C.POINTER(W.ULONG)]
         self.security.OpenSCManagerW.argtypes=[W.LPCWSTR,W.LPCWSTR,W.DWORD]
         self.security.OpenSCManagerW.restype=W.HANDLE
@@ -54,8 +56,19 @@ class DesktopBridge:
     def connect(self):
         if self.handle is not None:return
         self.mark('PIPE_OPEN')
-        handle=self.kernel.CreateFileW(PIPE,0x0012019B,0,None,3,0x40000000,None)
-        if handle==C.c_void_p(-1).value:raise self.native_failure()
+        while True:
+            handle=self.kernel.CreateFileW(PIPE,0x0012019B,0,None,3,0x40000000,None)
+            if handle!=C.c_void_p(-1).value:break
+            error=C.get_last_error()
+            if error!=231:raise BridgeFailure('WIN32',max(0,error))
+            # A previous pipe connection may still be closing in the service.
+            # Wait only before any frame is written; never retry an action.
+            remaining=self.deadline-time.monotonic()
+            if remaining<=0:raise BridgeFailure('TIMEOUT',231)
+            if not self.kernel.WaitNamedPipeW(PIPE,max(1,int(remaining*1000))):
+                error=C.get_last_error()
+                if error==121 or time.monotonic()>=self.deadline:raise BridgeFailure('TIMEOUT',231)
+                raise BridgeFailure('WIN32',max(0,error))
         manager=service=None
         try:
             self.mark('PIPE_PEER_PID')

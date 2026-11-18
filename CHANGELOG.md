@@ -190,3 +190,9 @@ Primera publicación estable, confirmada por el usuario.
 - Opción de diagnóstico por ADB accesible sin conexión: último informe filtrado persistente, eventos locales acotados, borrado al desactivar. Consulta automática de solo lectura después de una acción rechazada, antes de desconectar y sin repetir la acción.
 - MediaSession vinculada a la notificación para controles multimedia en el bloqueo de Android, limitada a la conexión activa y sin pedir foco de audio.
 - Pruebas de secuencia, captura voluntaria y ausencia de repetición; compilación y firma de las ediciones personal y pública.
+
+## Windows Server 0.5.0-alpha.17 / Android 0.5.0-alpha.27
+
+- Evidencia del PC: servicio en ejecución, cuenta/sesión correctas y error nativo 231 (pipe ocupado) antes de enviar entrada. La apertura espera la disponibilidad dentro del plazo original; conserva las comprobaciones de identidad y no reenvía tramas. Otros errores, como acceso denegado, no se reintentan.
+- Pruebas de espera, límite de tiempo y rechazo; prueba Windows de relevo real entre dos clientes sin entrada.
+- El informe Android muestra códigos alfanuméricos como WIN32, que antes aparecían como UNKNOWN. No se da por validada la interacción UAC física hasta repetir la prueba en el PC.

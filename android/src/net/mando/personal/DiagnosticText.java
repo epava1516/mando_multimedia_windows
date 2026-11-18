@@ -3,7 +3,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 /** Whitelist fields: never copy arbitrary server JSON, exception text or credentials. */
 final class DiagnosticText {
-    private static String code(String value) {return value.matches("[A-Z_]{1,48}")?value:"UNKNOWN";}
+    private static String code(String value) {return value.matches("[A-Z][A-Z0-9_]{0,47}")?value:"UNKNOWN";}
     private static String match(JSONObject data,String key) {
         return data.isNull(key)||!data.has(key)?"sin confirmar":data.optBoolean(key)?"sí":"no";
     }

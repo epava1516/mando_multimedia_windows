@@ -66,3 +66,28 @@ class AdvancedTests(unittest.TestCase):
         with patch('desktop_bridge.C.get_last_error',return_value=109,create=True):
             with self.assertRaises(BridgeFailure) as error:b.io(count=3)
         self.assertEqual(error.exception.errno,109)
+
+class PipeOpenTests(unittest.TestCase):
+    def bridge(self):
+        b=DesktopBridge.__new__(DesktopBridge);b.kernel=Mock();b.security=Mock();b.handle=None
+        b.started=time.monotonic();b.deadline=b.started+2;b.trace=[];b.peer_pid=None;b.pid_matches=None
+        b.kernel.GetNamedPipeServerProcessId.side_effect=lambda handle,pid:setattr(pid._obj,'value',42) or 1
+        def status(service,level,data,length,needed):data[1]=4;data[7]=42;return 1
+        b.security.QueryServiceStatusEx.side_effect=status
+        return b
+    def test_busy_open_waits_before_identity_check_without_writing(self):
+        b=self.bridge();b.kernel.CreateFileW.side_effect=[C.c_void_p(-1).value,10];b.kernel.WaitNamedPipeW.return_value=1
+        with patch('desktop_bridge.C.get_last_error',return_value=231,create=True):b.connect()
+        self.assertEqual(b.kernel.CreateFileW.call_count,2);b.kernel.WaitNamedPipeW.assert_called_once()
+        self.assertTrue(b.pid_matches);self.assertEqual(b.handle,10);b.kernel.WriteFile.assert_not_called()
+    def test_access_denial_is_not_retried(self):
+        b=self.bridge();b.kernel.CreateFileW.return_value=C.c_void_p(-1).value
+        with patch('desktop_bridge.C.get_last_error',return_value=5,create=True):
+            with self.assertRaises(BridgeFailure) as error:b.connect()
+        self.assertEqual(error.exception.errno,5);b.kernel.WaitNamedPipeW.assert_not_called();self.assertEqual(b.kernel.CreateFileW.call_count,1)
+    def test_busy_wait_timeout_retains_231_and_never_writes(self):
+        b=self.bridge();b.kernel.CreateFileW.return_value=C.c_void_p(-1).value;b.kernel.WaitNamedPipeW.return_value=0
+        with patch('desktop_bridge.C.get_last_error',side_effect=[231,121],create=True):
+            with self.assertRaises(BridgeFailure) as error:b.connect()
+        self.assertEqual(error.exception.kind,'TIMEOUT');self.assertEqual(error.exception.errno,231)
+        b.kernel.WriteFile.assert_not_called();self.assertLessEqual(b.kernel.WaitNamedPipeW.call_args.args[1],2000)
