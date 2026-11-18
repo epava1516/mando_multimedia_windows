@@ -198,3 +198,5 @@ Primera publicación estable, confirmada por el usuario.
 - El informe Android muestra códigos alfanuméricos como WIN32, que antes aparecían como UNKNOWN. No se da por validada la interacción UAC física hasta repetir la prueba en el PC.
 
 - La prueba nativa reprodujo un atasco permanente: el broker omitía Disconnect cuando EOF cambiaba IsConnected a falso. Limpia ahora toda conexión aceptada, también en estado roto, antes de volver a escuchar. La espera por sí sola no resolvía ese atasco.
+
+- La prueba nativa destapó además CLIENT_IDENTITY al intentar impersonar antes de leer una trama. Ahora lee una trama acotada y autentica su remitente antes de ejecutar cualquier operación; mantiene SID, ACL, sesión y verificaciones de PID.

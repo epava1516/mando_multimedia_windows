@@ -267,9 +267,10 @@ internal sealed class MandoDesktopBroker : ServiceBase {
                             while(!wait.WaitOne(1000)){if(stopping)return;}
                             pipe.EndWaitForConnection(accept);accepted=true;
                         }
-                        uint session=WTSGetActiveConsoleSessionId();
-                        string rejected=AuthorizationFailure(pipe,session);
-                        if(rejected!=null){Deny(pipe,rejected,false);continue;}
+                        uint session;string rejected;
+                        // Named-pipe impersonation needs a received frame to identify
+                        // its sender. Read bounded data first, then authenticate it
+                        // before status, validation, worker creation or any input.
                         while(!stopping&&pipe.IsConnected) {
                             Stage("REQUEST");
                             Dictionary<string,object> request=Read(pipe,30000);session=WTSGetActiveConsoleSessionId();
