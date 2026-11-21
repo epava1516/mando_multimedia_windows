@@ -2,7 +2,7 @@
 
 Landing pública: https://mando.sherlockhomeless.net/. Homepage apunta a esta página. La ruta anterior `/apps/mando/` conserva su autenticación.
 
-HTML y CSS locales sin JavaScript, formularios ni analítica. Solo `public/` se sirve por Nginx; contiene APK alpha.27, EXE alpha.17, instrucciones, hashes, metadatos y recursos visuales. No montar la raíz del proyecto ni publicar claves o `.state`.
+HTML y CSS locales sin JavaScript, formularios ni analítica. Solo `public/` se sirve por Nginx; contiene APK alpha.28, EXE alpha.17, instrucciones, hashes, metadatos y recursos visuales. No montar la raíz del proyecto ni publicar claves o `.state`.
 
 Despliegue desde este directorio:
 
