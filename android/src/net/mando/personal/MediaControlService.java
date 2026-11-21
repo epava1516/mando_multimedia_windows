@@ -34,7 +34,7 @@ public final class MediaControlService extends Service {
     private volatile boolean finished;
     private android.media.session.MediaSession mediaSession;
     private void sendMediaKey(String key) {
-        if(!java.util.Arrays.asList("PREVIOUS","PLAY_PAUSE","NEXT","VOLUME_DOWN","VOLUME_UP").contains(key))return;
+        if(!java.util.Arrays.asList("LEFT","PLAY_PAUSE","RIGHT","VOLUME_DOWN","VOLUME_UP").contains(key))return;
         submit(()->CLIENT.action(new JSONObject().put("type","key").put("key",key).put("modifiers",new JSONArray())));
     }
     private void createMediaSession() {
@@ -43,10 +43,10 @@ public final class MediaControlService extends Service {
         mediaSession.setCallback(new android.media.session.MediaSession.Callback(){
             @Override public void onPlay(){sendMediaKey("PLAY_PAUSE");}
             @Override public void onPause(){sendMediaKey("PLAY_PAUSE");}
-            @Override public void onSkipToPrevious(){sendMediaKey("PREVIOUS");}
-            @Override public void onSkipToNext(){sendMediaKey("NEXT");}
             @Override public void onCustomAction(String action,android.os.Bundle extras){
-                if("mando.volume.down".equals(action))sendMediaKey("VOLUME_DOWN");
+                if("net.mando.media.LEFT".equals(action))sendMediaKey("LEFT");
+                else if("net.mando.media.RIGHT".equals(action))sendMediaKey("RIGHT");
+                else if("mando.volume.down".equals(action))sendMediaKey("VOLUME_DOWN");
                 else if("mando.volume.up".equals(action))sendMediaKey("VOLUME_UP");
             }
         });
@@ -54,8 +54,9 @@ public final class MediaControlService extends Service {
         // that this phone is playing audio and never request Android audio focus.
         mediaSession.setPlaybackState(new android.media.session.PlaybackState.Builder()
             .setActions(android.media.session.PlaybackState.ACTION_PLAY|android.media.session.PlaybackState.ACTION_PAUSE|
-                android.media.session.PlaybackState.ACTION_PLAY_PAUSE|android.media.session.PlaybackState.ACTION_SKIP_TO_PREVIOUS|
-                android.media.session.PlaybackState.ACTION_SKIP_TO_NEXT)
+                android.media.session.PlaybackState.ACTION_PLAY_PAUSE)
+            .addCustomAction("net.mando.media.LEFT","Retroceder",R.drawable.ic_media_previous)
+            .addCustomAction("net.mando.media.RIGHT","Adelantar",R.drawable.ic_media_next)
             .addCustomAction("mando.volume.down","Bajar volumen del PC",R.drawable.ic_volume_down)
             .addCustomAction("mando.volume.up","Subir volumen del PC",R.drawable.ic_volume_up)
             .setState(android.media.session.PlaybackState.STATE_PAUSED,android.media.session.PlaybackState.PLAYBACK_POSITION_UNKNOWN,0).build());
@@ -99,9 +100,9 @@ public final class MediaControlService extends Service {
             .setColor(0xffa8b9ff).setColorized(true).setShowWhen(false).setLargeIcon(notificationLogo())
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .addAction(new Notification.Action.Builder(R.drawable.ic_media_previous,"Anterior",command("PREVIOUS",1)).build())
+            .addAction(new Notification.Action.Builder(R.drawable.ic_media_previous,"Retroceder",command("LEFT",1)).build())
             .addAction(new Notification.Action.Builder(R.drawable.ic_media_toggle,"Play / pausa",command("PLAY_PAUSE",2)).build())
-            .addAction(new Notification.Action.Builder(R.drawable.ic_media_next,"Siguiente",command("NEXT",3)).build())
+            .addAction(new Notification.Action.Builder(R.drawable.ic_media_next,"Adelantar",command("RIGHT",3)).build())
             .addAction(new Notification.Action.Builder(R.drawable.ic_volume_down,"Bajar volumen",command("VOLUME_DOWN",4)).build())
             .addAction(new Notification.Action.Builder(R.drawable.ic_volume_up,"Subir volumen",command("VOLUME_UP",5)).build())
             .setStyle(new Notification.MediaStyle().setMediaSession(mediaSession.getSessionToken()).setShowActionsInCompactView(0,1,2))
